@@ -1,3 +1,4 @@
+import { ResponsivePanel } from '../ui/responsive-panel'
 import React, { useMemo, useState } from 'react'
 import type { Message } from '../../../../shared/types'
 import type {
@@ -579,7 +580,8 @@ export function ExportWorkspace({
         onStart={() => void handleStart()}
       />
 
-      <ExportPreviewPanel
+      <ResponsivePanel title="导出预览">
+<ExportPreviewPanel
         status={status}
         previewItems={previewItems}
         previewMediaCount={previewMediaCount}
@@ -597,6 +599,7 @@ export function ExportWorkspace({
         }}
         onReveal={(path) => void window.api.revealExport(path)}
       />
+</ResponsivePanel>
     </div>
   )
 }

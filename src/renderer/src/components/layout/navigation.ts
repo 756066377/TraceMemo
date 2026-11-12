@@ -15,7 +15,7 @@ export interface NavigationItem {
 }
 
 export const PRIMARY_NAV_ITEMS: NavigationItem[] = [
-  { id: 'archive', label: '档案' },
+  { id: 'archive', label: '狗头军师' },
   { id: 'search', label: '问问微信' },
   { id: 'report', label: '日报' },
   { id: 'exit-monitor', label: '退群监控' },

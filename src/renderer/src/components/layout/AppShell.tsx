@@ -2,7 +2,7 @@ import React from 'react'
 import { AccountSummary } from '../account/AccountSummary'
 import { PrimaryNavigation } from './PrimaryNavigation'
 import { AppPage, PRIMARY_NAV_ITEMS } from './navigation'
-import brandIcon from '../../assets/brand-icon.svg'
+import { GlassPanel } from '../ui/glass-panel'
 
 interface SelfInfo {
   wxid: string
@@ -24,14 +24,6 @@ interface AppShellProps {
   children: React.ReactNode
 }
 
-function BrandLogo(): React.ReactElement {
-  return (
-    <div className="app-brand" title="TraceMemo（迹忆）" aria-label="TraceMemo（迹忆）">
-      <img src={brandIcon} alt="" aria-hidden="true" />
-    </div>
-  )
-}
-
 export function AppShell({
   activePage,
   selfInfo,
@@ -44,23 +36,18 @@ export function AppShell({
   compactMode = false,
   children
 }: AppShellProps): React.ReactElement {
-  React.useEffect(() => {
-    document.documentElement.dataset.theme = appearanceTheme
-    return () => {
-      delete document.documentElement.dataset.theme
-    }
-  }, [appearanceTheme])
-
   const activeItem = PRIMARY_NAV_ITEMS.find((item) => item.id === activePage)
 
   return (
     <div className={`app-shell theme-${appearanceTheme} ${compactMode ? 'is-compact' : ''}`}>
-      <aside className="app-primary-rail">
-        <BrandLogo />
+      <a className="tm-skip-link" href="#workspace-content">
+        跳到工作区
+      </a>
+      <aside className="app-primary-rail tm-glass-panel tm-glass-emphasis">
         <PrimaryNavigation activePage={activePage} onPageChange={onPageChange} />
         <button
           type="button"
-          className="app-guide-launcher"
+          className="dui-btn dui-btn-ghost app-guide-launcher"
           onClick={onOpenGuide}
           title="重新打开新手引导"
         >
@@ -81,8 +68,13 @@ export function AppShell({
           />
         </div>
       </aside>
-      <main className="app-shell-main" aria-label={activeItem?.label || '工作区'}>
-        {children}
+      <main
+        id="workspace-content"
+        tabIndex={-1}
+        className="app-shell-main"
+        aria-label={activeItem?.label || '工作区'}
+      >
+        <GlassPanel className="tm-workspace-surface">{children}</GlassPanel>
       </main>
     </div>
   )

@@ -15,6 +15,9 @@ import { delimiter, dirname, extname, join, sep } from 'path'
 import ffmpegStaticPath from 'ffmpeg-static'
 import { promisify } from 'util'
 import type {
+  PersonalWechatEndpointCandidate,
+  PersonalWechatEndpointScanResult,
+  PersonalWechatSendErrorCode,
   PersonalWechatSendRequest,
   PersonalWechatSendResult,
   PersonalWechatSenderStatus,
@@ -25,12 +28,30 @@ import { SilkAudioDecoder, SilkAudioEncoder } from '../voice-pipeline/audio-deco
 import { appLogger } from '../app-logger'
 import { readLocalAccountIdentity } from './local-account-identity'
 import { macWechatRuntimeManager } from './mac-wechat-runtime-manager'
+import {
+  HOOK_PROTOCOL_LABELS,
+  WECHAT4_SEND_SUSPENDED_REASON,
+  HookCallError,
+  hookSupportsVoice,
+  probeHook,
+  sendImageViaHook,
+  sendTextViaHook,
+  type WechatHookProtocol
+} from './windows-wechat-hook'
 
 const execFileAsync = promisify(execFile)
 const WINDOWS_LOOPBACK_HOST = '127.0.0.1'
 const REQUEST_TIMEOUT_MS = 20_000
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024
 const MAX_VOICE_BYTES = 20 * 1024 * 1024
+/**
+ * 单条微信消息的软上限。hook 侧上限是 2000 字，这里留 200 字余量，
+ * 避免中文按 UTF-16 计数时踩线被拒。
+ */
+const TEXT_SEGMENT_LIMIT = 1_800
+/** 瞬时失败最多尝试 3 次（含首次）。 */
+const SEND_MAX_ATTEMPTS = 3
+const SEND_RETRY_DELAYS_MS = [400, 1_200]
 // 语音编码由 native runtime 内的 SILK 实现完成，不再是外部编码器进程。
 const VOICE_ENCODER_NAME = 'silk'
 const VOICE_ENCODER_VERSION = 'tm-wechat-native'
@@ -251,17 +272,33 @@ function windowsImageTempRoot(): string {
   throw new Error('无法创建 Windows 图片临时目录')
 }
 
-export function prepareWindowsImageFile(filePath: string): {
+export function prepareWindowsImageFile(
+  filePath: string,
+  forceCopy = false
+): {
   filePath: string
   temporary: boolean
 } {
   const normalized = String(filePath || '').trim()
-  if (isAsciiPath(normalized)) return { filePath: normalized, temporary: false }
+  if (!forceCopy && isAsciiPath(normalized)) return { filePath: normalized, temporary: false }
 
   const extension = extname(normalized).toLowerCase()
   const safeExtension = /^\.[a-z0-9]{1,8}$/.test(extension) ? extension : '.png'
+  const temporaryRoot = windowsImageTempRoot()
+  if (forceCopy) {
+    // Recover stale copies left by an application exit before the cleanup timer.
+    for (const name of readdirSync(temporaryRoot)) {
+      if (!/^tm-img-[a-f0-9]{16}\.[a-z0-9]{1,8}$/.test(name)) continue
+      const stale = join(temporaryRoot, name)
+      try {
+        if (Date.now() - statSync(stale).mtimeMs > 10 * 60_000) unlinkSync(stale)
+      } catch {
+        // A busy file can be retried during the next send.
+      }
+    }
+  }
   const temporaryPath = join(
-    windowsImageTempRoot(),
+    temporaryRoot,
     `tm-img-${randomBytes(8).toString('hex')}${safeExtension}`
   )
   if (!isAsciiPath(temporaryPath)) throw new Error('Windows 图片临时路径必须只包含 ASCII 字符')
@@ -548,7 +585,224 @@ async function requestWindowsHook(
   return parsed
 }
 
+/**
+ * 解析 `netstat -ano` 输出里的本机监听端口。
+ *
+ * 只用 Windows 自带的 netstat，不引入原生依赖；
+ * 兼容 `127.0.0.1:9999`、`0.0.0.0:8000`、`[::]:135` 三种写法。
+ */
+export function parseListeningPorts(netstatOutput: string): string[] {
+  const ports = new Set<string>()
+  for (const line of String(netstatOutput || '').split(/\r?\n/)) {
+    const match = line.match(/^\s*TCP\s+(.+):(\d{1,5})\s+\S+\s+LISTENING/i)
+    if (!match) continue
+    const address = match[1].trim()
+    const port = Number(match[2])
+    if (!Number.isInteger(port) || port < 1 || port > 65_535) continue
+    // 只保留本机可达的监听地址（回环 / 全部网卡 / IPv6 任意）。
+    const isLoopback =
+      address === '127.0.0.1' ||
+      address === '0.0.0.0' ||
+      address === '[::]' ||
+      address === '[::1]' ||
+      address === '::'
+    if (!isLoopback) continue
+    ports.add(String(port))
+  }
+  return [...ports]
+}
+
+/** 常见 hook/中转服务端口优先探测，减少「刚好排在后半段」的等待。 */
+const PREFERRED_ENDPOINT_PORTS = [
+  '9999',
+  '19088',
+  '10086',
+  '30001',
+  '10010',
+  '8888',
+  '8000',
+  '8080',
+  '3000',
+  '3001',
+  '5000',
+  '9000'
+]
+const ENDPOINT_SCAN_LIMIT = 80
+const ENDPOINT_PROBE_TIMEOUT_MS = 700
+
+/**
+ * 扫描本机监听端口，找出符合 `/getLoginInfo` 契约的微信发送接口。
+ *
+ * 说明：TraceMemo 本身不带注入式 hook；这个扫描只负责「你机器上已经跑了一个
+ * 发送接口时，把它的端口找出来」，不会去创建或修改任何服务。
+ * 只发 GET，不发消息、不写配置。
+ */
+export async function scanWindowsWechatEndpoint(): Promise<PersonalWechatEndpointScanResult> {
+  if (process.platform !== 'win32') {
+    return {
+      success: false,
+      scanned: 0,
+      candidates: [],
+      error: '只有 Windows 需要配置发送接口端口'
+    }
+  }
+  let output = ''
+  try {
+    const { stdout } = await execFileAsync('netstat', ['-ano', '-p', 'TCP'], {
+      windowsHide: true,
+      timeout: 8_000,
+      maxBuffer: 8 * 1024 * 1024
+    })
+    output = String(stdout || '')
+  } catch (error) {
+    return {
+      success: false,
+      scanned: 0,
+      candidates: [],
+      error: `读取本机端口失败：${error instanceof Error ? error.message : String(error)}`
+    }
+  }
+
+  const listening = parseListeningPorts(output)
+  const ordered = [
+    ...PREFERRED_ENDPOINT_PORTS.filter((port) => listening.includes(port)),
+    ...listening.filter((port) => !PREFERRED_ENDPOINT_PORTS.includes(port))
+  ].slice(0, ENDPOINT_SCAN_LIMIT)
+
+  const probes = await Promise.all(ordered.map((port) => probeEndpoint(port)))
+  const candidates = probes
+    .filter((item): item is PersonalWechatEndpointCandidate => Boolean(item))
+    .sort((left, right) => Number(right.matched) - Number(left.matched))
+  const best = candidates.find((item) => item.matched)
+  return {
+    success: true,
+    scanned: ordered.length,
+    candidates: candidates.slice(0, 20),
+    ...(best ? { bestPort: best.port } : {})
+  }
+}
+
+async function probeEndpoint(port: string): Promise<PersonalWechatEndpointCandidate | null> {
+  const probe = await probeHook(`127.0.0.1:${port}`, ENDPOINT_PROBE_TIMEOUT_MS)
+  if (!probe) return null
+  return {
+    port,
+    // 接口契约匹配就算数；登录态单独放在 loggedIn，
+    // 否则「hook 在跑但微信未登录」会被误判成没找到接口。
+    matched: true,
+    loggedIn: probe.loggedIn,
+    status: 200,
+    detail: probe.detail,
+    protocol: probe.protocol,
+    protocolLabel: HOOK_PROTOCOL_LABELS[probe.protocol]
+  }
+}
+
+/**
+ * 把长文本切成多条消息。
+ * 优先级：段落 → 句末标点 → 空格 → 硬切。切点尽量落在句子边界，
+ * 避免把一句话从中间劈开导致对方读到半句。
+ */
+export function splitWechatText(text: string, limit = TEXT_SEGMENT_LIMIT): string[] {
+  const normalized = String(text || '').trim()
+  if (!normalized) return []
+  if (normalized.length <= limit) return [normalized]
+
+  const chunks: string[] = []
+  let rest = normalized
+  while (rest.length > limit) {
+    const window = rest.slice(0, limit)
+    const candidates = [
+      window.lastIndexOf('\n'),
+      window.lastIndexOf('。'),
+      window.lastIndexOf('！'),
+      window.lastIndexOf('？'),
+      window.lastIndexOf('；'),
+      window.lastIndexOf('. '),
+      window.lastIndexOf(' ')
+    ]
+    const cut = Math.max(...candidates)
+    // 找不到像样的切点就硬切，但要避免切出空白段。
+    const at = cut > limit * 0.4 ? cut + 1 : limit
+    const chunk = rest.slice(0, at).trim()
+    if (chunk) chunks.push(chunk)
+    rest = rest.slice(at).trim()
+  }
+  if (rest) chunks.push(rest)
+  return chunks
+}
+
+/** 发送失败分类；界面按 code 给不同建议，不再只显示一坨原始报错。 */
+export function classifyWechatSendError(error: unknown): {
+  code: PersonalWechatSendErrorCode
+  message: string
+} {
+  const raw = error instanceof Error ? error.message : String(error || '')
+  if (error instanceof WindowsHookHttpError) {
+    if (error.status === 429) {
+      return { code: 'rate_limited', message: `发送过于频繁（HTTP 429）：${raw}` }
+    }
+    if (error.status >= 500) {
+      return { code: 'hook_error', message: `发送服务内部错误（HTTP ${error.status}）：${raw}` }
+    }
+    return { code: 'hook_error', message: raw }
+  }
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return {
+      code: 'timeout',
+      message: '发送请求超时。消息可能已经发出，请先在微信里确认再决定是否重发。'
+    }
+  }
+  if (/ECONNREFUSED|ENOTFOUND|ECONNRESET|EPIPE|socket hang up|fetch failed/i.test(raw)) {
+    return { code: 'network', message: `连接不上微信发送服务：${raw}` }
+  }
+  if (/空响应|无效 JSON|返回格式无效/i.test(raw)) {
+    return { code: 'hook_error', message: raw }
+  }
+  return { code: 'hook_error', message: raw || '发送失败' }
+}
+
+/** 只有「确定没送达」的失败才重试；超时不重试，避免同一条发两遍。 */
+function isTransientSendError(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === 'AbortError') return false
+  if (error instanceof WindowsHookHttpError) return error.status >= 500 || error.status === 429
+  const raw = error instanceof Error ? error.message : String(error || '')
+  return /ECONNREFUSED|ECONNRESET|EPIPE|socket hang up|fetch failed|空响应/i.test(raw)
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** 带重试的 hook 调用，返回实际尝试次数，便于界面说明「重试过才成功」。 */
+async function requestWindowsHookWithRetry(
+  endpoint: string,
+  body: Record<string, unknown>,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+  host = windowsHookHost()
+): Promise<{ response: WindowsHookResponse; attempts: number }> {
+  let attempts = 0
+  for (let index = 0; index < SEND_MAX_ATTEMPTS; index += 1) {
+    attempts += 1
+    try {
+      const response = await requestWindowsHook(endpoint, body, timeoutMs, 'POST', host)
+      return { response, attempts }
+    } catch (error) {
+      const canRetry = index < SEND_MAX_ATTEMPTS - 1 && isTransientSendError(error)
+      if (!canRetry) throw error
+      const wait = SEND_RETRY_DELAYS_MS[Math.min(index, SEND_RETRY_DELAYS_MS.length - 1)]
+      logSendDiagnostic('hook-retry', { endpoint, attempt: attempts, waitMs: wait })
+      await delay(wait)
+    }
+  }
+  throw new Error('发送重试已用完')
+}
+
 export class PersonalWechatSendService {
+  /** Windows 按账号排队，其他平台保持同一接收者串行。 */
+  private readonly sendQueues = new Map<string, Promise<unknown>>()
+  private lastWechat4Submission = 0
+
   async getStatus(): Promise<PersonalWechatSenderStatus> {
     // macOS 发送能力完全由 native runtime（tm-wechat-host）提供，
     // 这里保持同源，避免出现第二套状态判断。
@@ -576,6 +830,29 @@ export class PersonalWechatSendService {
   }
 
   async send(request: PersonalWechatSendRequest): Promise<PersonalWechatSendResult> {
+    // Windows 的不同接收者也共用一个内部发送通道。
+    const key =
+      process.platform === 'win32'
+        ? 'win32:account'
+        : `${process.platform}:${String(request?.to || '').trim()}`
+    return this.enqueueSend(key, () => this.sendNow(request))
+  }
+
+  private enqueueSend<T>(key: string, task: () => Promise<T>): Promise<T> {
+    const previous = this.sendQueues.get(key) || Promise.resolve()
+    const run = previous.then(task, task)
+    const settled = run.then(
+      () => undefined,
+      () => undefined
+    )
+    this.sendQueues.set(key, settled)
+    void settled.then(() => {
+      if (this.sendQueues.get(key) === settled) this.sendQueues.delete(key)
+    })
+    return run
+  }
+
+  private async sendNow(request: PersonalWechatSendRequest): Promise<PersonalWechatSendResult> {
     if (process.platform === 'win32') return this.sendWindows(request)
     if (process.platform === 'darwin') {
       if (request.type === 'text') return this.sendMacText(request)
@@ -593,6 +870,47 @@ export class PersonalWechatSendService {
     return this.getWindowsStatus()
   }
 
+  /**
+   * hook 调用重试：只重试「确定没送达」的失败（5xx / 连不上 / 空响应）。
+   * 超时不重试，避免同一条消息发两遍。
+   */
+  private async callHookWithRetry(task: () => Promise<void>): Promise<number> {
+    let attempts = 0
+    for (let index = 0; index < SEND_MAX_ATTEMPTS; index += 1) {
+      attempts += 1
+      try {
+        await task()
+        return attempts
+      } catch (error) {
+        const transient =
+          error instanceof HookCallError
+            ? (error.status ?? 0) >= 500 || (error.status ?? 0) === 429
+            : isTransientSendError(error)
+        if (index >= SEND_MAX_ATTEMPTS - 1 || !transient) throw error
+        const wait = SEND_RETRY_DELAYS_MS[Math.min(index, SEND_RETRY_DELAYS_MS.length - 1)]
+        logSendDiagnostic('hook-retry', { attempt: attempts, waitMs: wait })
+        await delay(wait)
+      }
+    }
+    throw new Error('发送重试已用完')
+  }
+
+  private async submitHook(
+    protocol: WechatHookProtocol,
+    task: () => Promise<void>
+  ): Promise<number> {
+    if (protocol !== 'wechat4-hook') return this.callHookWithRetry(task)
+    const wait = 2_000 - (Date.now() - this.lastWechat4Submission)
+    if (wait > 0) await delay(wait)
+    try {
+      // The server may accept a message before the HTTP response is lost.
+      await task()
+      return 1
+    } finally {
+      this.lastWechat4Submission = Date.now()
+    }
+  }
+
   private async getWindowsStatus(port?: string): Promise<PersonalWechatSenderStatus> {
     const host = windowsHookHost(port)
     const base = windowsStatusBase(host || '')
@@ -604,48 +922,73 @@ export class PersonalWechatSendService {
         error: '请先输入端口并检测后保存'
       }
     }
-    try {
-      const result = await requestWindowsHook('/getLoginInfo', {}, 3_000, 'GET', host)
-      const loggedIn = parseWindowsLoginStatus(result)
-      const connected = {
-        wechatRunning: true,
-        runtimeReady: true,
-        endpointReady: true,
-        attachReady: true,
-        baseAddressReady: true,
-        textHookInstalled: false,
-        textHookReady: false,
-        imageHookInstalled: false,
-        imageHookReady: false,
-        messageListenerReady: false
-      }
-      if (!loggedIn) {
-        return {
-          ...base,
-          ...connected,
-          state: 'hook_not_ready',
-          message: 'Windows 微信发送能力已连接，但微信尚未登录',
-          error: 'getLoginInfo 返回 status=false，登录后才能发送消息'
-        }
-      }
-
-      return {
-        ...base,
-        ...connected,
-        state: 'online' as const,
-        canSend: true,
-        canSendText: true,
-        canSendImage: true,
-        canSendVoice: true,
-        message: 'Windows 微信发送能力已连接，可以发送消息'
-      }
-    } catch (error) {
+    // 逐个协议探测：trace-hook / wxhelper / wcf-http，命中即用。
+    const probe = await probeHook(host, 1_500)
+    if (!probe) {
       return {
         ...base,
         state: 'wechat_not_running',
-        message: '未检测到 Windows 微信发送能力，请先启动并登录微信',
-        error: error instanceof Error ? error.message : String(error)
+        message: '端口有服务，但不符合任何已知发送接口',
+        error:
+          '未探测到 /getLoginInfo、/api/checkLogin、/login 或 /QueryDB/status。请确认发送组件已启动、端口正确。'
       }
+    }
+    const connected = {
+      wechatRunning: true,
+      runtimeReady: true,
+      endpointReady: true,
+      attachReady: true,
+      baseAddressReady: true,
+      textHookInstalled: true,
+      textHookReady: true,
+      imageHookInstalled: true,
+      imageHookReady: true,
+      messageListenerReady: false,
+      hookProtocol: probe.protocol,
+      hookProtocolLabel: HOOK_PROTOCOL_LABELS[probe.protocol],
+      ...(probe.loginState ? { loginState: probe.loginState } : {})
+    }
+    if (!probe.loggedIn) {
+      return {
+        ...base,
+        ...connected,
+        state: 'hook_not_ready',
+        message: `已连接 ${HOOK_PROTOCOL_LABELS[probe.protocol]}，${
+          probe.loginState === 'logged_out'
+            ? '微信尚未登录'
+            : probe.loginState === 'unknown'
+              ? '登录状态读取失败'
+              : '组件尚未确认登录'
+        }`,
+        error:
+          probe.loginState === 'logged_out'
+            ? '组件已确认当前账号未登录，请登录微信后重试。'
+            : probe.loginState === 'unknown'
+              ? `组件无法确认当前登录状态：${probe.loginError || '账号对象暂不可用'}。请稍后重试；持续失败时检查微信版本和组件是否匹配。`
+              : probe.protocol === 'wechat4-hook'
+                ? '端口连接正常，但旧组件返回 IsLogin=0。请退出微信后使用新版配套组件启动，再检测登录状态。'
+                : '请登录微信后再检测；若已登录，请检查发送组件的登录状态检测。'
+      }
+    }
+    if (probe.protocol === 'wechat4-hook') {
+      return {
+        ...base,
+        ...connected,
+        state: 'hook_not_ready',
+        message: '微信已登录 · 发送已暂停',
+        error: WECHAT4_SEND_SUSPENDED_REASON
+      }
+    }
+    const supportsVoice = hookSupportsVoice(probe.protocol)
+    return {
+      ...base,
+      ...connected,
+      state: 'online' as const,
+      canSend: true,
+      canSendText: true,
+      canSendImage: true,
+      canSendVoice: supportsVoice,
+      message: `已就绪 · ${HOOK_PROTOCOL_LABELS[probe.protocol]}${supportsVoice ? '' : '（该接口不支持语音）'}`
     }
   }
 
@@ -889,17 +1232,43 @@ export class PersonalWechatSendService {
       request = { ...request, to, filePath }
     }
 
-    const status = await this.getWindowsStatus()
-    if (!status.canSend) return { success: false, status, error: status.error || status.message }
+    let status = await this.getWindowsStatus()
+    if (!status.canSend) {
+      // hook 刚起来时第一次探测经常失败；短暂等待后复核一次，避免误报「未就绪」。
+      await delay(600)
+      status = await this.getWindowsStatus()
+      if (!status.canSend) {
+        return {
+          success: false,
+          status,
+          error: status.error || status.message,
+          errorCode: 'not_ready'
+        }
+      }
+    }
 
+    let attemptsTotal = 0
+    let segments = 1
+    let sentSegments = 0
     let temporaryImagePath: string | undefined
     let temporaryVoicePath: string | undefined
+    const protocol: WechatHookProtocol = status.hookProtocol || 'trace-hook'
+    const host = windowsHookHost()
     try {
+      if (!host) throw new Error('尚未配置微信发送能力端口')
       if (request.type === 'text') {
-        const windowsRequest = buildWindowsWechatRequest(request)
-        await requestWindowsHook(windowsRequest.endpoint, windowsRequest.body)
+        const parts = splitWechatText(request.text)
+        segments = parts.length
+        for (const part of parts) {
+          if (protocol === 'wechat4-hook') attemptsTotal += 1
+          const attempts = await this.submitHook(protocol, () =>
+            sendTextViaHook(protocol, host, request.to, part)
+          )
+          if (protocol !== 'wechat4-hook') attemptsTotal += attempts
+          sentSegments += 1
+        }
       } else if (request.type === 'image') {
-        const preparedImage = prepareWindowsImageFile(request.filePath)
+        const preparedImage = prepareWindowsImageFile(request.filePath, protocol === 'wechat4-hook')
         temporaryImagePath = preparedImage.temporary ? preparedImage.filePath : undefined
         // 关键证据：源文件有多大、是否走了临时副本、副本拷出来多大。
         // `copiedBytes < sourceBytes` ⇒ 截断的拷贝：拷贝中途失败不会抛错，
@@ -909,12 +1278,18 @@ export class PersonalWechatSendService {
           usedTempCopy: preparedImage.temporary,
           copiedBytes: safeFileSize(preparedImage.filePath)
         })
-        const windowsRequest = buildWindowsWechatRequest({
-          ...request,
-          filePath: preparedImage.filePath
-        })
-        await requestWindowsHook(windowsRequest.endpoint, windowsRequest.body, 60_000)
+        if (protocol === 'wechat4-hook') attemptsTotal += 1
+        const attempts = await this.submitHook(protocol, () =>
+          sendImageViaHook(protocol, host!, request.to, preparedImage.filePath, 60_000)
+        )
+        if (protocol !== 'wechat4-hook') attemptsTotal += attempts
+        sentSegments = 1
       } else if (request.type === 'voice') {
+        if (!hookSupportsVoice(protocol)) {
+          throw new Error(
+            `当前发送接口（${HOOK_PROTOCOL_LABELS[protocol]}）不支持语音，请改用 TraceMemo Hook 或改发文字/图片`
+          )
+        }
         const fromId = String(request.fromId || '').trim()
         if (!fromId) throw new Error('无法识别当前微信账号 wxid，无法发送语音')
         const preparedVoice = await prepareWindowsVoiceFile(request.filePath)
@@ -932,22 +1307,56 @@ export class PersonalWechatSendService {
           filePath: preparedVoice.filePath,
           durationMs
         })
-        await requestWindowsHook(windowsRequest.endpoint, windowsRequest.body, 60_000)
+        const result = await requestWindowsHookWithRetry(
+          windowsRequest.endpoint,
+          windowsRequest.body,
+          60_000
+        )
+        attemptsTotal += result.attempts
+        sentSegments = 1
       } else {
         const windowsRequest = buildWindowsWechatRequest(request)
-        await requestWindowsHook(windowsRequest.endpoint, windowsRequest.body, 60_000)
+        const result = await requestWindowsHookWithRetry(
+          windowsRequest.endpoint,
+          windowsRequest.body,
+          60_000
+        )
+        attemptsTotal += result.attempts
+        sentSegments = 1
       }
-      return { success: true, status: await this.getWindowsStatus() }
+      return {
+        success: true,
+        status,
+        ...(protocol === 'wechat4-hook' ? { deliveryStatus: 'accepted' as const } : {}),
+        attempts: attemptsTotal,
+        segments,
+        sentSegments
+      }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
+      const classified = classifyWechatSendError(error)
+      const partial =
+        sentSegments > 0 && sentSegments < segments
+          ? `（已发出 ${sentSegments}/${segments} 段）`
+          : ''
       return {
         success: false,
-        status: { ...(await this.getWindowsStatus()), state: 'error', error: message },
-        error: `发送失败：${message}`
+        status: { ...status, state: 'error', error: classified.message },
+        error:
+          protocol === 'wechat4-hook'
+            ? `提交未确认：${classified.message}${partial}。请先在微信核对，避免重复发送`
+            : `发送失败：${classified.message}${partial}`,
+        errorCode: classified.code,
+        attempts: attemptsTotal,
+        segments,
+        sentSegments
       }
     } finally {
       if (temporaryImagePath) {
-        if (WINDOWS_TEMP_IMAGE_GRACE_MS > 0) {
+        const graceMs =
+          protocol === 'wechat4-hook'
+            ? Math.max(WINDOWS_TEMP_IMAGE_GRACE_MS, 10 * 60_000)
+            : WINDOWS_TEMP_IMAGE_GRACE_MS
+        if (graceMs > 0) {
           // 诊断模式：先不删，等一段时间再删（见常量注释）。
           const pending = temporaryImagePath
           setTimeout(() => {
@@ -956,7 +1365,7 @@ export class PersonalWechatSendService {
             } catch {
               // best effort
             }
-          }, WINDOWS_TEMP_IMAGE_GRACE_MS).unref?.()
+          }, graceMs).unref?.()
         } else {
           try {
             unlinkSync(temporaryImagePath)

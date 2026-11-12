@@ -3,7 +3,7 @@ import { Contact } from '../../../../shared/types'
 import { Button, IconButton, Tooltip, TooltipContent, TooltipTrigger } from '../ui'
 import { ConversationContentSearch } from './ConversationContentSearch'
 import { AiIcon, RefreshIcon, SearchIcon, SendIcon, StatsIcon } from './icons'
-import { supportsPersonalWechatSend } from '../../utils/runtime-environment'
+import { isWindows, supportsPersonalWechatSend } from '../../utils/runtime-environment'
 import { GroupMemberStatsDialog } from '../group-stats/GroupMemberStatsDialog'
 
 interface ChatHeaderProps {
@@ -17,6 +17,8 @@ interface ChatHeaderProps {
   onRefresh?: () => void
   onTestSend: () => void
   onOpenAiSettings: () => void
+  /** Windows-only：以当前会话的本地数据库消息启动分析与草稿生成。 */
+  onAnalyzeReply?: () => void
   /** 跳到「设置 · 本地索引」（群统计发现索引没追平时用）。 */
   onOpenLocalIndexSettings?: () => void
 }
@@ -32,6 +34,7 @@ export function ChatHeader({
   onRefresh,
   onTestSend,
   onOpenAiSettings,
+  onAnalyzeReply,
   onOpenLocalIndexSettings
 }: ChatHeaderProps): React.ReactElement {
   const [searchOpen, setSearchOpen] = useState(Boolean(contentFilter))
@@ -96,6 +99,20 @@ export function ChatHeader({
           >
             <StatsIcon />
             <span>群发言统计</span>
+          </Button>
+        ) : null}
+        {isWindows && onAnalyzeReply ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="chat-header-text-action"
+            aria-label="分析并起草"
+            title="基于当前会话最近消息生成对话分析与回复草稿"
+            onClick={onAnalyzeReply}
+            disabled={loadedCount === 0}
+          >
+            <AiIcon />
+            <span>分析并起草</span>
           </Button>
         ) : null}
         {supportsPersonalWechatSend ? (

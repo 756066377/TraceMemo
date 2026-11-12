@@ -181,7 +181,7 @@ export function ConversationSidebar({
         refreshing={isRefreshing}
         onRefresh={() => void handleRefresh()}
       />
-      <div ref={listRef} className="conversation-list" aria-label="会话列表">
+      <div ref={listRef} className="conversation-list" role="region" aria-label="会话列表">
         <div
           className="conversation-virtual-content"
           style={{ height: `${virtualizer.getTotalSize()}px` }}

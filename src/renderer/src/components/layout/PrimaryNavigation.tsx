@@ -136,7 +136,8 @@ export function PrimaryNavigation({
         <button
           key={item.id}
           type="button"
-          className={`primary-nav-item ${activePage === item.id ? 'active' : ''}`}
+          className={`dui-btn dui-btn-ghost primary-nav-item ${activePage === item.id ? 'active' : ''}`}
+          aria-current={activePage === item.id ? 'page' : undefined}
           onClick={() => onPageChange(item.id)}
           title={item.label}
         >

@@ -95,7 +95,7 @@ export function CacheCleanupPage({
       onNotice(
         result.removed
           ? '已清理图片文字索引；微信原始图片、聊天记录和普通文字知识库都未受影响。需要时可在「问问微信」里重新建立'
-          : '图片文字索引的数据文件仍被占用，没能完全删除。请重启 TraceMemo 后再试一次'
+          : '图片文字索引的数据文件仍被占用，没能完全删除。请重启 NearCast 后再试一次'
       )
     } catch (error) {
       onNotice(error instanceof Error ? error.message : '清理图片文字索引失败')
@@ -134,7 +134,7 @@ export function CacheCleanupPage({
             <div>
               <span className="settings-card-kicker">可恢复缓存</span>
               <strong>{formatBytes(summary?.totalBytes || 0)}</strong>
-              <small>清理后首次打开档案可能需要重新读取。</small>
+              <small>清理后首次打开狗头军师可能需要重新读取。</small>
             </div>
             <Button
               variant="destructive"
@@ -223,7 +223,7 @@ export function CacheCleanupPage({
           <AlertDialogHeader>
             <AlertDialogTitle>清理图片文字索引？</AlertDialogTitle>
             <AlertDialogDescription>
-              将删除 TraceMemo 本地生成的图片 OCR 文本和对应搜索索引。
+              将删除 NearCast 本地生成的图片 OCR 文本和对应搜索索引。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="settings-confirm-detail">

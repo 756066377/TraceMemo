@@ -598,10 +598,18 @@ export function toPersonalWechatSendResult(
     return raw as PersonalWechatSendResult
   }
   if (action.status === 'sent') return { success: true, status: fallbackStatus }
+  const rawCode = String(action.errorCode || '')
+  const errorCode =
+    rawCode === 'SEND_NOT_READY' || rawCode === 'SEND_CAPABILITY_UNAVAILABLE'
+      ? ('not_ready' as const)
+      : rawCode === 'INVALID_REQUEST' || rawCode === 'INVALID_RECIPIENT'
+        ? ('invalid_input' as const)
+        : ('unknown' as const)
   return {
     success: false,
     status: fallbackStatus,
-    error: action.reason || action.errorCode || '微信发送失败'
+    error: action.reason || action.errorCode || '微信发送失败',
+    errorCode
   }
 }
 

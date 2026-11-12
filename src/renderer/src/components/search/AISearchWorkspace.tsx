@@ -1,3 +1,4 @@
+import { ResponsivePanel } from '../ui/responsive-panel'
 import React, { useMemo, useRef, useState } from 'react'
 import { aiSearchIntentLabel, aiSearchRangeStart } from '../../../../shared/ai-search'
 import type {
@@ -1084,7 +1085,7 @@ export function AISearchWorkspace({
     <div className="ai-search-workspace">
       <header className="ai-search-header">
         <div>
-          <span className="ai-search-kicker">TraceMemo 本地搜索</span>
+          <span className="ai-search-kicker">NearCast 本地搜索</span>
           <h1>问问你的微信</h1>
           <p>在本地聊天记录中提炼主题、结论和可追溯证据</p>
         </div>
@@ -1166,7 +1167,7 @@ export function AISearchWorkspace({
                 disabled={!activeContact}
                 onClick={() => {
                   if (!activeContact) {
-                    onNotice('请先在档案中选择一个会话')
+                    onNotice('请先在狗头军师中选择一个会话')
                     return
                   }
                   setScope('conversation')
@@ -1454,7 +1455,8 @@ export function AISearchWorkspace({
             onCancel={() => void cancelAnalysis()}
           />
         </main>
-        <AISearchEvidencePanel
+        <ResponsivePanel title="证据与来源" revealKey={evidenceFlash.nonce}>
+<AISearchEvidencePanel
           evidence={visibleEvidence}
           collectionCount={evidenceCollection.length}
           selectedEvidence={selectedEvidence}
@@ -1466,6 +1468,7 @@ export function AISearchWorkspace({
           onLoadMoreEvidence={loadMoreEvidence}
           setEvidenceCardRef={setEvidenceCardRef}
         />
+</ResponsivePanel>
       </div>
       <ExternalProviderConsentDialog
         consent={externalProviderConsent}

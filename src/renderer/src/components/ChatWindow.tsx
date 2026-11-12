@@ -7,8 +7,10 @@ import { DataTrustBar } from './chat/DataTrustBar'
 import { EmptyConversationState } from './chat/EmptyConversationState'
 import { MessageList } from './chat/MessageList'
 import { PersonalWechatSendDialog } from './chat/PersonalWechatSendDialog'
+import { ReplyAssistantPanel } from './chat/ReplyAssistantPanel'
 import { mergeGroupExitEvents } from '../../../shared/group-exit-event-message'
 import { useGroupExitEvents } from '../hooks/useGroupExitEvents'
+import { isWindows } from '../utils/runtime-environment'
 
 interface ChatWindowProps {
   contact: Contact | null
@@ -59,6 +61,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [isAtLatest, setIsAtLatest] = useState(true)
   const [isReloadingAvatars, setIsReloadingAvatars] = useState(false)
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
+  const [replyAssistantOpen, setReplyAssistantOpen] = useState(false)
   const previousScrollTopRef = useRef(0)
 
   const scrollToBottom = useCallback((): void => {
@@ -80,6 +83,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   useEffect(() => {
     previousScrollTopRef.current = 0
     setIsAtLatest(true)
+    setReplyAssistantOpen(false)
   }, [contact?.md5])
 
   // 一次跳转 = 有精确目标或有时间目标。用统一判据，避免"只带了 messageId 但没带时间"
@@ -137,6 +141,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     [messages, groupExitEvents]
   )
 
+  /**
+   * 最新一条消息：只用于「分析后自动跟踪新消息」。
+   * 按 createTime 取最大，避免分页加载历史时把最新的顶掉。
+   */
+  const latestMessage = React.useMemo(() => {
+    let latest: Message | undefined
+    for (const message of messages) {
+      if (!latest) {
+        latest = message
+        continue
+      }
+      if ((message.createTime ?? 0) >= (latest.createTime ?? 0)) latest = message
+    }
+    return latest
+      ? {
+          id: latest.id,
+          createTime: latest.createTime,
+          isSender: Boolean(latest.isSender)
+        }
+      : null
+  }, [messages])
+
   const filteredMessages = React.useMemo(() => {
     return allMessages.filter((msg) => {
       const filterTypes = (import.meta.env.VITE_FILTER_MSG_TYPES || '')
@@ -170,7 +196,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   if (!contact) return <EmptyConversationState />
 
   return (
-    <div className="chat-window">
+    <div className={`chat-window${replyAssistantOpen ? ' with-reply-panel' : ''}`}>
       <ChatHeader
         contact={contact}
         isGroupChat={isGroupChat}
@@ -182,6 +208,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         onRefresh={onRefresh}
         onTestSend={() => void handleOpenPersonalWechatSend()}
         onOpenAiSettings={onCreateGroupReport || (() => undefined)}
+        onAnalyzeReply={isWindows ? () => setReplyAssistantOpen((open) => !open) : undefined}
         onOpenLocalIndexSettings={onOpenLocalIndexSettings}
       />
       <DataTrustBar messageCount={messages.length} />
@@ -217,6 +244,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           isGroupChat={isGroupChat}
           onClose={() => setSendDialogOpen(false)}
           onOpenTextToSpeechSettings={onOpenTextToSpeechSettings}
+          onOpenPersonalWechatSettings={onOpenPersonalWechatSettings}
+        />
+      )}
+
+      {isWindows && replyAssistantOpen && (
+        <ReplyAssistantPanel
+          contact={contact}
+          isGroupChat={isGroupChat}
+          latestMessage={latestMessage}
+          onClose={() => setReplyAssistantOpen(false)}
           onOpenPersonalWechatSettings={onOpenPersonalWechatSettings}
         />
       )}

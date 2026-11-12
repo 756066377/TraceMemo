@@ -30,7 +30,7 @@ const SCOPE_LABELS: Record<string, string> = {
  * 证据卡片的会话归属：群消息必须显示**群名**，而不是把所有群消息都归成"群聊"。
  *
  * `contact.md5` 必须是**真实会话 id**：合成 key（如 `query-agent:<群名>`）选不中任何会话，
- * 「跳转到原聊天」只能停在档案首页。真实 id 只能从 `messageRef` 里还原
+ * 「跳转到原聊天」只能停在狗头军师首页。真实 id 只能从 `messageRef` 里还原
  * （展示契约里刻意不含 md5 字段）；`messageRef` 缺失或解析失败时退化成合成 key，
  * 并且调用方必须按"无法定位"处理。
  */

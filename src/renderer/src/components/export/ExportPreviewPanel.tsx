@@ -69,7 +69,7 @@ export function ExportPreviewPanel({
     : ''
 
   return (
-    <aside className="export-preview-panel flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-border max-[1100px]:hidden">
+    <aside className="export-preview-panel flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-border">
       {status === 'idle' && (
         <>
           <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-border px-[18px] text-xs text-foreground">

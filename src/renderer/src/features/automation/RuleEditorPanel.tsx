@@ -154,7 +154,7 @@ export function RuleEditorPanel({
       <header className="automation-editor-header">
         <div>
           <h2>{mode === 'create' ? '新建自动化' : '编辑自动化'}</h2>
-          <p>命中条件后，TraceMemo 会按下面的顺序依次执行。</p>
+          <p>命中条件后，NearCast 会按下面的顺序依次执行。</p>
         </div>
         <div className="automation-editor-actions">
           <Button variant="ghost" onClick={onCancel} disabled={saving}>
@@ -256,7 +256,7 @@ export function RuleEditorPanel({
             <div className="automation-group-list" role="group" aria-label="生效群聊">
               {groups.length === 0 ? (
                 <p className="automation-group-empty">
-                  还没有读取到群聊。请先在「档案」中连接并解锁微信数据库。
+                  还没有读取到群聊。请先在「狗头军师」中连接并解锁微信数据库。
                 </p>
               ) : visibleGroups.length === 0 ? (
                 <p className="automation-group-empty">没有匹配「{groupFilter}」的群聊</p>

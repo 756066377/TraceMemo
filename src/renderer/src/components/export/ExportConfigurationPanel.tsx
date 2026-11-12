@@ -132,7 +132,7 @@ export function ExportConfigurationPanel({
               ? allContactTypes.map((type, index) => (
                   <span
                     className={`export-chat-avatar export-all-chat-avatar ${type} absolute grid h-[52px] w-[52px] place-items-center overflow-hidden rounded-lg border-2 border-background text-xs font-bold text-primary-foreground ${
-                      type === 'group' ? 'bg-[#2f7d5c]' : 'bg-[#416a8b]'
+                      type === 'group' ? 'bg-primary text-primary-content' : 'bg-info text-info-content'
                     }`}
                     style={{ left: index * 12, top: 3 + index * 5 }}
                     key={type}
@@ -331,7 +331,7 @@ export function ExportConfigurationPanel({
             />
           </label>
           <div
-            className={`${choicePanelClassName} mt-2 grid gap-0.5 ${mediaOptionsEnabled ? '' : 'opacity-50'}`}
+            className={`${choicePanelClassName} mt-2 grid gap-0.5 ${mediaOptionsEnabled ? '' : 'text-muted-foreground'}`}
           >
             {(
               [
