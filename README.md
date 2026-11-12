@@ -95,9 +95,9 @@ NearCast 是一款**本地优先**的微信数据、AI 分析与自动化工作�
 
 | 平台    | 架构                           | 微信连接                              | 安装包                          |
 | ------- | ------------------------------ | ------------------------------------- | ------------------------------- |
-| Windows | x64                            | 支持微信 4.x                          | `tracememo-<version>-setup.exe` |
-| macOS   | Apple Silicon（M 系列、arm64） | 自动获取数据库 Key                    | `tracememo-<version>-arm64.dmg` |
-| macOS   | Intel（x64）                   | 自动获取数据库 Key                    | `tracememo-<version>-x64.dmg`   |
+| Windows | x64                            | 支持微信 4.x                          | `NearCast-<version>-setup.exe` |
+| macOS   | Apple Silicon（M 系列、arm64） | 自动获取数据库 Key                    | `NearCast-<version>-arm64.dmg` |
+| macOS   | Intel（x64）                   | 自动获取数据库 Key                    | `NearCast-<version>-x64.dmg`   |
 
 Windows 与 macOS 均支持微信本地数据库连接与数据库 Key 获取。
 
@@ -129,7 +129,7 @@ Windows 端的发送能力由本机 hook 组件提供：
 ```bash
 pnpm install
 pnpm dev                  # 开发模式
-pnpm build:win            # Windows 安装包（dist/tracememo-<version>-setup.exe）
+pnpm build:win            # Windows 安装包（dist/NearCast-<version>-setup.exe）
 pnpm build:mac:arm64     # macOS Apple Silicon
 pnpm build:mac:x64       # macOS Intel
 ```
