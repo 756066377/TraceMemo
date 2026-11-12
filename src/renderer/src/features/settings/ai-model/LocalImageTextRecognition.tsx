@@ -243,7 +243,7 @@ function localOcrErrorMessage(result: SystemOcrResult): string {
     case 'UNSUPPORTED_PLATFORM':
       return '本地图片文字识别目前支持 Windows 与 macOS。'
     case 'SYSTEM_OCR_UNAVAILABLE':
-      return '本地文字识别组件不可用，请重新安装 TraceMemo。'
+      return '本地文字识别组件不可用，请重新安装 NearCast。'
     case 'OCR_LANGUAGE_UNAVAILABLE':
       return '当前 Windows 未安装可用的 OCR 语言支持，请在系统「语言和区域」中安装中文或英文语言包。'
     case 'UNSUPPORTED_IMAGE':

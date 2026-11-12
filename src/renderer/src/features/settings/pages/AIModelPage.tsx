@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react'
 import type { AIRuntimeModelConfig } from '../../../../../shared/ai-provider'
 import { Button } from '../../../components/ui'
 import { AIProviderCard } from '../ai-model/AIProviderCard'
@@ -15,98 +14,110 @@ export function AIModelPage({
   onNotice: (message: string) => void
 }): React.ReactElement {
   const controller = useAIModelSettingsController({ onRuntimeChange, onNotice })
-  const shouldRevealEditor = useRef(false)
-  const runtime = controller.state.runtime
-  const defaultProvider = controller.state.providers.find(
-    (provider) => provider.id === runtime?.providerId
-  )
-
-  useEffect(() => {
-    if (!controller.state.editor || !shouldRevealEditor.current) return
-    shouldRevealEditor.current = false
-    const editor = document.getElementById('ai-provider-editor')
-    editor?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    editor?.querySelector<HTMLInputElement>('#ai-provider-name')?.focus({ preventScroll: true })
-  }, [controller.state.editor])
-
-  const openNewProvider = (): void => {
-    shouldRevealEditor.current = true
-    controller.openNew()
-  }
-
-  const openProviderEditor = (provider: (typeof controller.state.providers)[number]): void => {
-    shouldRevealEditor.current = true
-    controller.openEdit(provider)
-  }
+  const { state } = controller
+  const runtime = state.runtime
+  const defaultProvider = state.providers.find((provider) => provider.id === runtime?.providerId)
 
   return (
     <div className="settings-page ai-model-page">
       <header className="settings-page-header">
         <div>
           <h1>AI 模型</h1>
-          <p>管理模型供应商、连接信息和默认模型</p>
+          <p>添加端点、探测模型、测试连接</p>
         </div>
-        <Button onClick={openNewProvider}>添加供应商</Button>
+        <Button onClick={() => controller.openNew()}>添加供应商</Button>
       </header>
+
       <div className="settings-page-scroll">
         <div className="settings-page-content ai-model-content">
           <section className="settings-card ai-model-default">
             <div>
               <span>当前默认模型</span>
               <strong>{runtime?.modelName || '尚未配置'}</strong>
-              <small>{runtime?.providerName || '请添加供应商'}</small>
+              <small>
+                {runtime?.providerName || '请添加供应商'}
+                {runtime?.configured ? '' : ' · 未完成配置'}
+              </small>
             </div>
-            <span className={`settings-status-badge ${runtime?.configured ? '' : 'unavailable'}`}>
-              {runtime?.configured ? '可用' : '未配置'}
-            </span>
+            <div className="ai-model-default-actions">
+              <span className={`settings-status-badge ${runtime?.configured ? '' : 'unavailable'}`}>
+                {runtime?.configured ? '可用' : '未配置'}
+              </span>
+              {defaultProvider ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={state.testingId === defaultProvider.id}
+                  onClick={() => void controller.test(defaultProvider.id)}
+                >
+                  {state.testingId === defaultProvider.id ? '测试中…' : '测试连接'}
+                </Button>
+              ) : null}
+            </div>
           </section>
+
+          {state.error ? (
+            <p className="ai-model-page-error" role="alert">
+              {state.error}
+            </p>
+          ) : null}
+
+          <h2 className="settings-section-heading">供应商</h2>
+          <div className="ai-provider-list">
+            {state.providers.map((provider) => (
+              <AIProviderCard
+                key={provider.id}
+                provider={provider}
+                testing={state.testingId === provider.id}
+                onEdit={() => controller.openEdit(provider)}
+                onTest={() => void controller.test(provider.id)}
+                onDefault={() => void controller.setDefault(provider.id)}
+                onDelete={() => void controller.remove(provider.id)}
+              />
+            ))}
+            {!state.loading && !state.providers.length ? (
+              <div className="settings-card ai-provider-empty">
+                <strong>还没有供应商</strong>
+                <p>点右上角「添加供应商」，先选模板，再用「探测模型」读取端点实际提供的模型。</p>
+              </div>
+            ) : null}
+          </div>
+
           <AIImageUnderstandingTest
             runtime={runtime}
             provider={defaultProvider}
-            state={controller.state.visionTest}
+            state={controller.visionState}
             onSelectImage={(file) => void controller.selectVisionImage(file)}
             onPromptChange={controller.setVisionPrompt}
             onTest={() => void controller.runVisionTest()}
             onClear={controller.clearVisionImage}
           />
           <LocalImageTextRecognition />
-          {controller.state.error ? (
-            <p className="ai-model-page-error">{controller.state.error}</p>
-          ) : null}
-          {controller.state.editor ? (
-            <AIProviderEditor
-              provider={controller.state.editor}
-              presetId={controller.state.presetId}
-              editing={Boolean(controller.state.originalProviderId)}
-              saving={controller.state.saving}
-              onPreset={controller.selectPreset}
-              onChange={controller.updateEditor}
-              onCancel={controller.closeEditor}
-              onSave={() => void controller.save()}
-            />
-          ) : null}
-          <h2 className="settings-section-heading">供应商列表</h2>
-          <div className="ai-provider-list">
-            {controller.state.providers.map((provider) => (
-              <AIProviderCard
-                key={provider.id}
-                provider={provider}
-                testing={controller.state.testingId === provider.id}
-                onEdit={() => openProviderEditor(provider)}
-                onTest={() => void controller.test(provider.id)}
-                onDefault={() => void controller.setDefault(provider.id)}
-                onDelete={() => void controller.remove(provider.id)}
-              />
-            ))}
-            {!controller.state.loading && !controller.state.providers.length ? (
-              <div className="settings-card ai-provider-empty">
-                <strong>尚未配置 AI 供应商</strong>
-                <p>添加 OpenAI、Anthropic、DeepSeek、Ollama 或兼容服务。</p>
-              </div>
-            ) : null}
-          </div>
         </div>
       </div>
+
+      {state.editor.open && state.editor.draft ? (
+        <AIProviderEditor
+          draft={state.editor.draft}
+          originalId={state.editor.originalId}
+          hasStoredKey={state.editor.hasStoredKey}
+          saving={state.editor.saving}
+          error={state.editor.error}
+          advices={state.editor.advices}
+          probe={state.editor.probe}
+          catalog={state.catalog}
+          onClose={controller.closeEditor}
+          onPatch={controller.updateDraft}
+          onSelectTemplate={controller.selectTemplate}
+          onAddModel={controller.addModel}
+          onRemoveModel={controller.removeModel}
+          onUpdateModel={controller.updateModel}
+          onSetDefaultModel={controller.setDefaultModel}
+          onProbe={() => void controller.probeModels()}
+          onAddProbed={controller.addProbedModels}
+          onSave={(options) => void controller.save(options)}
+        />
+      ) : null}
     </div>
   )
 }

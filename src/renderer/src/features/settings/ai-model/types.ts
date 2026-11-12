@@ -1,9 +1,12 @@
 import type {
+  AIModelProbeEntry,
   AIProviderConfig,
   AIProviderSummary,
   AIRuntimeModelConfig,
   AIVisionTestResult
 } from '../../../../../shared/ai-provider'
+import type { AIProviderAdvice } from '../../../../../shared/ai-provider-advisor'
+import type { AIProviderTemplate } from '../../../../../shared/ai-provider-catalog'
 
 export const DEFAULT_VISION_PROMPT =
   '请描述这张图片中的主要内容，包括物体、场景、文字信息以及你能观察到的细节。'
@@ -21,51 +24,50 @@ export interface AIVisionTestState {
   error?: string
 }
 
-export interface AIModelSettingsState {
-  loading: boolean
-  saving: boolean
-  providers: AIProviderSummary[]
-  runtime: AIRuntimeModelConfig | null
-  editor: AIProviderConfig | null
-  originalProviderId?: string
-  presetId: string
-  testingId?: string
-  visionTest: AIVisionTestState
+export interface ModelProbeState {
+  status: 'idle' | 'loading' | 'done' | 'error'
+  models: AIModelProbeEntry[]
+  endpoint?: string
   error?: string
+  hint?: string
 }
 
-export type AIModelSettingsAction =
-  | { type: 'LOADED'; providers: AIProviderSummary[]; runtime: AIRuntimeModelConfig }
-  | { type: 'ERROR'; error: string }
-  | {
-      type: 'OPEN_EDITOR'
-      editor: AIProviderConfig
-      presetId: string
-      originalProviderId?: string
-    }
-  | { type: 'CLOSE_EDITOR' }
-  | { type: 'EDIT'; editor: AIProviderConfig }
-  | { type: 'SAVE_START' }
-  | { type: 'TEST_START'; providerId: string }
-  | { type: 'VISION_READING' }
-  | {
-      type: 'VISION_READY'
-      image: NonNullable<AIVisionTestState['image']>
-    }
-  | { type: 'VISION_PROMPT'; prompt: string }
-  | { type: 'VISION_TEST_START' }
-  | { type: 'VISION_RESULT'; result: AIVisionTestResult }
-  | { type: 'VISION_ERROR'; error: string }
-  | { type: 'VISION_CLEAR' }
+export interface ProviderEditorState {
+  open: boolean
+  draft: AIProviderConfig | null
+  originalId?: string
+  /** 编辑已有供应商时，密钥是否已在安全存储里。 */
+  hasStoredKey?: boolean
+  saving: boolean
+  error?: string
+  advices: AIProviderAdvice[]
+  probe: ModelProbeState
+}
+
+export interface AIModelSettingsState {
+  loading: boolean
+  providers: AIProviderSummary[]
+  runtime: AIRuntimeModelConfig | null
+  catalog: AIProviderTemplate[]
+  testingId?: string
+  error?: string
+  editor: ProviderEditorState
+}
 
 export interface AIModelSettingsController {
   state: AIModelSettingsState
-  openNew: () => void
+  openNew: (templateId?: string) => void
   openEdit: (provider: AIProviderSummary) => void
   closeEditor: () => void
-  selectPreset: (presetId: string) => void
-  updateEditor: (editor: AIProviderConfig) => void
-  save: () => Promise<void>
+  updateDraft: (patch: Partial<AIProviderConfig>) => void
+  selectTemplate: (templateId: string) => void
+  addModel: (modelId: string) => void
+  removeModel: (modelId: string) => void
+  updateModel: (modelId: string, patch: Partial<AIProviderConfig['models'][number]>) => void
+  setDefaultModel: (modelId: string) => void
+  probeModels: () => Promise<void>
+  addProbedModels: (modelIds: string[]) => void
+  save: (options?: { testAfterSave?: boolean }) => Promise<void>
   remove: (providerId: string) => Promise<void>
   setDefault: (providerId: string) => Promise<void>
   test: (providerId: string) => Promise<void>
@@ -73,4 +75,5 @@ export interface AIModelSettingsController {
   setVisionPrompt: (prompt: string) => void
   runVisionTest: () => Promise<void>
   clearVisionImage: () => void
+  visionState: AIVisionTestState
 }

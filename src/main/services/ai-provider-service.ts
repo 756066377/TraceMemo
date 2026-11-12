@@ -6,15 +6,32 @@ import type {
   AIChatRequestOptions,
   AIConnectionTestResult,
   AIProviderConfig,
+  AIProviderDiagnosis,
   AIProviderListResult,
+  AIProviderProbeRequest,
+  AIProviderProbeResult,
   AIProviderSummary,
   AiSearchProviderStatus,
+  AIModelProbeEntry,
   AIRuntimeModelConfig,
   AIVisionRuntimeConfig,
   AIVisionTestRequest,
   AIVisionTestResult,
   LegacyAIConfig
 } from '../../shared/ai-provider'
+import {
+  humanizeModelId,
+  resolveTemplateId,
+  AI_PROVIDER_TEMPLATES,
+  uniqueModels,
+  type AIProviderTemplate
+} from '../../shared/ai-provider-catalog'
+import {
+  adviseProviderSetup,
+  describeAIProviderAdvisor,
+  type AIProviderAdvisorInfo,
+  type AIProviderAdvisorReport
+} from '../../shared/ai-provider-advisor'
 import { AIProviderKeyStore } from '../ai-provider-key-store'
 
 interface AIProviderMetadataFile {
@@ -96,7 +113,15 @@ export class AIProviderRequestError extends Error {
 
   constructor(
     message: string,
-    details: { status?: number; code?: unknown; type?: unknown; responseBody?: unknown; contentType?: string; elapsedMs?: number; htmlInsteadOfJson?: boolean } = {}
+    details: {
+      status?: number
+      code?: unknown
+      type?: unknown
+      responseBody?: unknown
+      contentType?: string
+      elapsedMs?: number
+      htmlInsteadOfJson?: boolean
+    } = {}
   ) {
     super(message)
     this.name = 'AIProviderRequestError'
@@ -110,6 +135,13 @@ export class AIProviderRequestError extends Error {
   }
 }
 
+/**
+ * 供应商服务。
+ *
+ * 与 2.5.x 的差别：不再有「模型必须归属到某个分组账户」的硬校验。
+ * 一个供应商就是一个端点 + 一组模型，保存只做格式校验；能不能用由真实请求决定，
+ * 失败时返回结构化诊断（含上游原文与处理建议），而不是一句归因错误。
+ */
 export class AIProviderService {
   constructor(private readonly keyStore = new AIProviderKeyStore()) {}
 
@@ -128,10 +160,29 @@ export class AIProviderService {
     }
   }
 
+  /** 模板目录：设置页的供应商选择器直接用这份数据。 */
+  getProviderCatalog(): AIProviderTemplate[] {
+    return AI_PROVIDER_TEMPLATES
+  }
+
+  getAdvisorInfo(): AIProviderAdvisorInfo {
+    return describeAIProviderAdvisor()
+  }
+
+  /** 保存前预览建议：只读本地表单，不写配置、不联网。 */
+  previewSetup(provider: AIProviderConfig): AIProviderAdvisorReport {
+    const storedKey = this.keyStore.get(provider.id).key
+    return adviseProviderSetup({
+      ...provider,
+      hasApiKey: Boolean(provider.apiKey?.trim() || storedKey)
+    })
+  }
+
   getRuntimeConfig(): AIRuntimeModelConfig {
     const result = this.list()
+    const chatProviders = result.providers.filter((item) => item.role !== 'strategy')
     const provider =
-      result.providers.find((item) => item.id === result.defaultProviderId) || result.providers[0]
+      chatProviders.find((item) => item.id === result.defaultProviderId) || chatProviders[0]
     const model = provider?.models.find((item) => item.id === provider.defaultModel)
     return {
       providerId: provider?.id,
@@ -161,7 +212,8 @@ export class AIProviderService {
 
   getVisionRuntimeConfig(): AIVisionRuntimeConfig {
     const result = this.list()
-    const defaultProvider = result.providers.find((item) => item.id === result.defaultProviderId)
+    const chatProviders = result.providers.filter((item) => item.role !== 'strategy')
+    const defaultProvider = chatProviders.find((item) => item.id === result.defaultProviderId)
     const defaultModel = defaultProvider?.models.find(
       (item) => item.id === defaultProvider.defaultModel
     )
@@ -183,7 +235,7 @@ export class AIProviderService {
       }
     }
 
-    for (const provider of result.providers) {
+    for (const provider of chatProviders) {
       if (!provider.hasApiKey && needsApiKey(provider)) continue
       const model =
         provider.models.find(
@@ -215,10 +267,11 @@ export class AIProviderService {
 
   getAiSearchProviderStatus(providerId?: string): AiSearchProviderStatus {
     const result = this.list()
+    const chatProviders = result.providers.filter((item) => item.role !== 'strategy')
     const provider =
-      result.providers.find((item) => item.id === providerId) ||
-      result.providers.find((item) => item.id === result.defaultProviderId) ||
-      result.providers[0]
+      chatProviders.find((item) => item.id === providerId) ||
+      chatProviders.find((item) => item.id === result.defaultProviderId) ||
+      chatProviders[0]
     if (!provider) return { configured: false, requiresConsent: false }
     const configured = Boolean(
       provider.models.length && (provider.hasApiKey || !needsApiKey(provider))
@@ -232,38 +285,89 @@ export class AIProviderService {
     }
   }
 
+  /**
+   * 保存供应商。
+   *
+   * 只做格式校验与原地规范化：
+   *  - 去掉 Base URL 末尾的 /chat/completions 等具体路径；
+   *  - 合并重复模型；
+   *  - 默认模型不在列表时改成第一个；
+   *  - 端点或模型变化时把连接状态重置为未测试。
+   * 不判断模型属于哪个「分组」，因此中转站上的新模型名可以正常保存。
+   */
   save(input: AIProviderConfig): AIProviderListResult {
-    const validationError = validateProvider(input)
+    const baseUrl = normalizeBaseUrl(input.baseUrl)
+    const models = uniqueModels(input.models)
+    const candidate: AIProviderConfig = { ...input, baseUrl, models }
+    const validationError = validateProvider(candidate)
     if (validationError) return { success: false, providers: [], error: validationError }
+
     const data = this.readMetadata()
     const existing = data.providers.find((provider) => provider.id === input.id)
+
     if (input.apiKey?.trim()) {
       const saved = this.keyStore.save(input.id, input.apiKey.trim())
       if (!saved.success) return { success: false, providers: [], error: saved.error }
-    } else if (needsApiKey(input) && !this.keyStore.get(input.id).key) {
+    } else if (needsApiKey(candidate) && !this.keyStore.get(input.id).key) {
       return { success: false, providers: [], error: '请填写 API Key' }
     }
 
-    const baseUrl = input.baseUrl.trim().replace(/\/+$/, '')
+    const notices: string[] = []
+    if (baseUrl && baseUrl !== input.baseUrl.trim()) {
+      notices.push('已去掉 Base URL 末尾的接口路径，只保留基础地址')
+    }
+    const defaultModel = models.some((model) => model.id === input.defaultModel)
+      ? input.defaultModel
+      : models[0]?.id || ''
+    if (defaultModel && defaultModel !== input.defaultModel) {
+      notices.push(`默认模型已调整为 ${defaultModel}`)
+    }
+    const templateId = resolveTemplateId({ templateId: input.templateId, baseUrl, models })
+
+    const previousModelIds = (existing?.models || []).map((model) => model.id).join('|')
+    const endpointChanged = Boolean(
+      existing &&
+      (existing.baseUrl !== baseUrl ||
+        previousModelIds !== models.map((model) => model.id).join('|'))
+    )
+    const status = endpointChanged ? 'untested' : existing?.status || 'untested'
+    if (endpointChanged) notices.push('端点或模型有变化，连接状态已重置为未测试')
+
     const metadata: Omit<AIProviderSummary, 'hasApiKey' | 'isDefault'> = {
-      id: input.id,
+      id: input.id.trim(),
       name: input.name.trim(),
       type: input.type,
       baseUrl,
       auth: input.auth,
-      models: input.models,
-      defaultModel: input.defaultModel,
+      models,
+      defaultModel,
       advanced: input.advanced,
-      status: existing?.status || 'untested',
-      lastTestedAt: existing?.lastTestedAt,
-      lastError: existing?.lastError
+      templateId,
+      note: input.note?.trim() || undefined,
+      role: input.role || 'chat',
+      status,
+      lastTestedAt: endpointChanged ? undefined : existing?.lastTestedAt,
+      lastError: endpointChanged ? undefined : existing?.lastError,
+      lastDiagnosis: endpointChanged ? undefined : existing?.lastDiagnosis,
+      // 旧字段原样保留，避免旧版本读取时丢信息。
+      ...(input.registryId ? { registryId: input.registryId } : {}),
+      ...(input.group ? { group: input.group } : {}),
+      ...(input.accountId ? { accountId: input.accountId } : {}),
+      ...(input.supportedModels ? { supportedModels: [...input.supportedModels] } : {}),
+      ...(existing?.registryId ? { registryId: existing.registryId } : {}),
+      ...(existing?.group ? { group: existing.group } : {}),
+      ...(existing?.accountId ? { accountId: existing.accountId } : {})
     }
-    const index = data.providers.findIndex((provider) => provider.id === input.id)
+
+    const index = data.providers.findIndex((provider) => provider.id === metadata.id)
     if (index >= 0) data.providers[index] = metadata
     else data.providers.push(metadata)
-    if (!data.defaultProviderId) data.defaultProviderId = input.id
+    if (!data.defaultProviderId) data.defaultProviderId = metadata.id
     this.writeMetadata(data)
-    return this.list()
+
+    const result = this.list()
+    if (notices.length) result.notices = notices
+    return result
   }
 
   delete(providerId: string): AIProviderListResult {
@@ -300,16 +404,209 @@ export class AIProviderService {
     return this.list()
   }
 
+  /**
+   * 连接测试。
+   *
+   * Chat Completions 与 Responses 相互回退一次：中转站只用其中一个时也能测通。
+   * 失败时返回结构化诊断，保留上游原文，便于区分「Key 错」「模型不存在」「分组无渠道」。
+   */
   async test(providerId: string): Promise<AIConnectionTestResult> {
     const startedAt = Date.now()
-    try {
-      await this.request([{ role: 'user', content: 'Reply with OK.' }], { providerId }, true)
-      this.updateTestStatus(providerId, 'connected')
-      return { success: true, latencyMs: Date.now() - startedAt }
-    } catch (error) {
-      const message = safeAIError(error)
-      this.updateTestStatus(providerId, 'error', message)
-      return { success: false, error: message, latencyMs: Date.now() - startedAt }
+    const list = this.list()
+    const provider = list.providers.find((item) => item.id === providerId)
+    if (!provider) {
+      return {
+        success: false,
+        error: '供应商不存在',
+        diagnosis: { code: 'NO_PROVIDER', message: '供应商不存在，可能已被删除。' }
+      }
+    }
+    const key = this.keyStore.get(providerId).key || ''
+    const model = provider.defaultModel || provider.models[0]?.id || ''
+    if (!model) {
+      const diagnosis: AIProviderDiagnosis = {
+        code: 'NO_MODEL',
+        message: '这个供应商还没有模型，无法测试。',
+        hint: '点「探测模型」从端点读取模型列表，或手动添加一个模型 ID。'
+      }
+      this.updateTestStatus(providerId, 'error', diagnosis)
+      return { success: false, error: diagnosis.message, diagnosis }
+    }
+
+    const tried: string[] = []
+    let lastError: unknown
+    for (const protocol of protocolCandidates(provider)) {
+      tried.push(protocol)
+      const attempt: AIProviderSummary = {
+        ...provider,
+        advanced: { ...provider.advanced, apiProtocol: protocol, timeoutMs: 30_000 }
+      }
+      try {
+        const result = await requestProvider(
+          attempt,
+          key,
+          model,
+          [{ role: 'user', content: 'Reply with OK.' }],
+          true
+        )
+        if (!result.data.trim()) {
+          throw new AIProviderRequestError('端点返回了空响应', { status: 200 })
+        }
+        this.updateTestStatus(providerId, 'connected')
+        return {
+          success: true,
+          latencyMs: Date.now() - startedAt,
+          diagnosis: {
+            code: 'OK',
+            message: `连接正常（${protocol}，模型 ${model}）`,
+            protocol
+          }
+        }
+      } catch (error) {
+        lastError = error
+        if (!shouldFallbackProtocol(error)) break
+      }
+    }
+
+    const diagnosis = diagnoseProviderError(lastError, {
+      provider,
+      model,
+      protocol: tried[tried.length - 1]
+    })
+    if (tried.length > 1) {
+      diagnosis.hint = [diagnosis.hint, `已尝试 ${tried.join(' 与 ')} 两种协议。`]
+        .filter(Boolean)
+        .join(' ')
+    }
+    this.updateTestStatus(providerId, 'error', diagnosis)
+    return {
+      success: false,
+      error: diagnosis.message,
+      latencyMs: Date.now() - startedAt,
+      diagnosis
+    }
+  }
+
+  /**
+   * 读取端点实际提供的模型。
+   *
+   * OpenAI 兼容端点：GET {baseUrl}/models
+   * Ollama：GET {baseUrl}/api/tags（/v1 变体与根地址都试一次）
+   * 这样中转站「有哪些模型」不再靠猜，避免照抄别家的模型 ID。
+   */
+  async probeModels(request: AIProviderProbeRequest): Promise<AIProviderProbeResult> {
+    const startedAt = Date.now()
+    let baseUrl = ''
+    let apiKey = ''
+    let type: AIProviderSummary['type'] = 'openai-compatible'
+    let auth: AIProviderSummary['auth'] = { type: 'bearer' }
+
+    if (request.providerId) {
+      const provider = this.list().providers.find((item) => item.id === request.providerId)
+      if (!provider) {
+        return {
+          success: false,
+          models: [],
+          error: '供应商不存在',
+          diagnosis: { code: 'NO_PROVIDER', message: '供应商不存在，可能已被删除。' }
+        }
+      }
+      baseUrl = normalizeBaseUrl(request.baseUrl || provider.baseUrl)
+      // 编辑时可能已经改过地址或刚填了 Key：优先用表单里的值，密钥仍可从安全存储取。
+      apiKey = request.apiKey?.trim() || this.keyStore.get(provider.id).key || ''
+      type = provider.type
+      auth = provider.auth
+      if (needsApiKey(provider) && !apiKey) {
+        return {
+          success: false,
+          models: [],
+          error: '缺少 API Key',
+          diagnosis: {
+            code: 'MISSING_API_KEY',
+            message: '这个端点需要 API Key 才能读取模型列表。',
+            hint: '先在表单里填 API Key；还没保存的配置可以直接在探测框里填。'
+          }
+        }
+      }
+    } else {
+      baseUrl = normalizeBaseUrl(request.baseUrl || '')
+      apiKey = request.apiKey?.trim() || ''
+      type = request.type || 'openai-compatible'
+    }
+
+    if (!baseUrl) {
+      return {
+        success: false,
+        models: [],
+        error: 'Base URL 不能为空',
+        diagnosis: {
+          code: 'INVALID_BASE_URL',
+          message: 'Base URL 不能为空。',
+          hint: '填中转站或官方端点给你的 /v1 地址。'
+        }
+      }
+    }
+
+    const endpoints = probeEndpoints(baseUrl, type)
+    let lastError: unknown
+    for (const endpoint of endpoints) {
+      try {
+        const payload = await fetchWithTimeout(
+          endpoint,
+          { method: 'GET', headers: buildProbeHeaders(auth, apiKey) },
+          Math.min(request.timeoutMs || 20_000, 60_000),
+          undefined,
+          async (response) => {
+            if (!response.ok) {
+              const body = await response.text()
+              throw new AIProviderRequestError(`读取模型列表失败 (${response.status})`, {
+                status: response.status,
+                responseBody: body.slice(0, 800),
+                contentType: response.headers.get('content-type') || ''
+              })
+            }
+            return (await response.json()) as unknown
+          }
+        )
+        const models = parseProbeModels(payload)
+        if (!models.length) {
+          return {
+            success: true,
+            models: [],
+            endpoint,
+            latencyMs: Date.now() - startedAt,
+            error: '端点返回了空的模型列表',
+            diagnosis: {
+              code: 'EMPTY_RESPONSE',
+              message: '端点响应里没有模型。',
+              hint: '有些中转站不实现 /models，只能手动填模型 ID。',
+              endpoint
+            }
+          }
+        }
+        return { success: true, models, endpoint, latencyMs: Date.now() - startedAt }
+      } catch (error) {
+        lastError = error
+      }
+    }
+
+    const diagnosis = diagnoseProviderError(lastError, {
+      provider: {
+        ...emptyProvider(baseUrl, type, auth),
+        id: request.providerId || 'probe',
+        name: '模型探测'
+      },
+      model: '',
+      endpoint: endpoints[0],
+      protocol: 'GET /models'
+    })
+    return {
+      success: false,
+      models: [],
+      endpoint: endpoints[0],
+      latencyMs: Date.now() - startedAt,
+      error: diagnosis.message,
+      diagnosis
     }
   }
 
@@ -358,7 +655,10 @@ export class AIProviderService {
     try {
       if (options?.apiKey) throw new Error('Tool Calling 不支持 legacy provider 配置')
       const resolved = this.resolveProvider(options)
-      if (resolved.provider.type !== 'openai-compatible' || resolved.provider.advanced.apiProtocol === 'responses') {
+      if (
+        resolved.provider.type !== 'openai-compatible' ||
+        resolved.provider.advanced.apiProtocol === 'responses'
+      ) {
         throw new Error('当前 Provider 协议暂不支持 Tool Calling POC')
       }
       const result = await requestOpenAICompatibleWithTools(
@@ -377,7 +677,8 @@ export class AIProviderService {
         success: false,
         error: safeAIError(error),
         timedOut,
-        htmlInsteadOfJson: error instanceof AIProviderRequestError ? Boolean(error.htmlInsteadOfJson) : false,
+        htmlInsteadOfJson:
+          error instanceof AIProviderRequestError ? Boolean(error.htmlInsteadOfJson) : false,
         ...(error instanceof AIProviderRequestError
           ? {
               ...(error.status !== undefined ? { errorStatus: error.status } : {}),
@@ -492,21 +793,65 @@ export class AIProviderService {
     )
   }
 
+  /**
+   * 路由：显式 provider/model 优先，其次是默认供应商。
+   * 找不到时给出可用列表，不再做「模型族 → 分组 → 账户」的推断。
+   */
   private resolveProvider(options?: { providerId?: string; modelId?: string }): {
     provider: AIProviderSummary
     model: string
     key: string
   } {
     const list = this.list()
-    const provider =
-      list.providers.find((item) => item.id === options?.providerId) ||
-      list.providers.find((item) => item.id === list.defaultProviderId)
-    if (!provider) throw new Error('尚未配置 AI Provider')
-    const model = options?.modelId || provider.defaultModel
-    if (!provider.models.some((item) => item.id === model)) throw new Error('当前模型不存在')
+    const usable = list.providers.filter((item) => item.role !== 'strategy')
+    if (!usable.length) {
+      throw new Error('尚未配置 AI 供应商。打开 设置 → AI 模型 添加一个端点。')
+    }
+    const wantedModel = options?.modelId?.trim()
+
+    if (options?.providerId) {
+      const explicit = list.providers.find((item) => item.id === options.providerId)
+      if (!explicit) throw new Error(`供应商 ${options.providerId} 不存在`)
+      if (wantedModel && !explicit.models.some((model) => model.id.trim() === wantedModel)) {
+        const owner = usable.find((item) =>
+          item.models.some((model) => model.id.trim() === wantedModel)
+        )
+        throw new Error(
+          owner
+            ? `模型 ${wantedModel} 属于供应商「${owner.name}」(${owner.id})，不属于「${explicit.name}」(${explicit.id})。`
+            : `供应商「${explicit.name}」(${explicit.id}) 里没有模型 ${wantedModel}。`
+        )
+      }
+      const model = wantedModel || explicit.defaultModel || explicit.models[0]?.id || ''
+      if (!model) throw new Error(`供应商「${explicit.name}」还没有配置模型`)
+      return { provider: explicit, model, key: this.requireKey(explicit) }
+    }
+
+    if (wantedModel) {
+      const owners = usable.filter((item) =>
+        item.models.some((model) => model.id.trim() === wantedModel)
+      )
+      const preferred = owners.find((item) => item.id === list.defaultProviderId) || owners[0]
+      if (preferred) {
+        return { provider: preferred, model: wantedModel, key: this.requireKey(preferred) }
+      }
+      throw new Error(
+        `没有任何供应商声明模型 ${wantedModel}。已配置模型：${formatModelInventory(usable)}`
+      )
+    }
+
+    const provider = usable.find((item) => item.id === list.defaultProviderId) || usable[0]
+    const model = provider.defaultModel || provider.models[0]?.id || ''
+    if (!model) throw new Error(`默认供应商「${provider.name}」还没有配置模型`)
+    return { provider, model, key: this.requireKey(provider) }
+  }
+
+  private requireKey(provider: AIProviderSummary): string {
     const key = this.keyStore.get(provider.id).key || ''
-    if (needsApiKey(provider) && !key) throw new Error('当前供应商尚未配置 API Key')
-    return { provider, model, key }
+    if (needsApiKey(provider) && !key) {
+      throw new Error(`供应商「${provider.name}」尚未配置 API Key`)
+    }
+    return key
   }
 
   private async requestLegacy(
@@ -531,14 +876,15 @@ export class AIProviderService {
   private updateTestStatus(
     providerId: string,
     status: 'connected' | 'error',
-    lastError?: string
+    diagnosis?: AIProviderDiagnosis
   ): void {
     const data = this.readMetadata()
     const provider = data.providers.find((item) => item.id === providerId)
     if (!provider) return
     provider.status = status
     provider.lastTestedAt = Date.now()
-    provider.lastError = lastError
+    provider.lastError = status === 'error' ? diagnosis?.message : undefined
+    provider.lastDiagnosis = diagnosis
     this.writeMetadata(data)
   }
 
@@ -581,8 +927,14 @@ export class AIProviderService {
     provider: Omit<AIProviderSummary, 'hasApiKey' | 'isDefault'>,
     defaultProviderId?: string
   ): AIProviderSummary {
+    const templateId = resolveTemplateId({
+      templateId: provider.templateId,
+      baseUrl: provider.baseUrl,
+      models: provider.models || []
+    })
     return {
       ...provider,
+      templateId,
       hasApiKey: Boolean(this.keyStore.get(provider.id).key),
       isDefault: provider.id === defaultProviderId
     }
@@ -592,23 +944,35 @@ export class AIProviderService {
     const filePath = this.metadataPath
     if (!fs.existsSync(filePath)) return { version: 1, providers: [] }
     const data = fs.readJsonSync(filePath) as AIProviderMetadataFile
-    if (data.version !== 1 || !Array.isArray(data.providers))
+    if (data.version !== 1 || !Array.isArray(data.providers)) {
       throw new Error('invalid provider metadata')
-    let removedLegacySearchConsent = false
-    // 老配置兼容:补 capabilities.ocr 默认值(vision 派生 OCR)
+    }
+    let migrated = false
     for (const provider of data.providers) {
       const stored = provider as Record<string, unknown>
       if ('aiSearchDataConsent' in stored) {
         delete stored.aiSearchDataConsent
-        removedLegacySearchConsent = true
+        migrated = true
       }
       for (const model of provider.models) {
         if (typeof model.capabilities.ocr !== 'boolean') {
           model.capabilities.ocr = model.capabilities.vision === true
+          migrated = true
+        }
+        if (!model.name) {
+          model.name = humanizeModelId(model.id)
+          migrated = true
         }
       }
+      if (!provider.templateId) {
+        provider.templateId = resolveTemplateId({
+          baseUrl: provider.baseUrl,
+          models: provider.models
+        })
+        migrated = true
+      }
     }
-    if (removedLegacySearchConsent) this.writeMetadata(data)
+    if (migrated) this.writeMetadata(data)
     return data
   }
 
@@ -622,13 +986,45 @@ export class AIProviderService {
   }
 }
 
+function normalizeBaseUrl(value: string): string {
+  let url = String(value || '')
+    .trim()
+    .replace(/\/+$/, '')
+  // 用户常把完整接口路径贴进来，保存前裁到基础地址。
+  url = url.replace(/\/(?:chat\/completions|responses|completions)$/i, '')
+  return url.replace(/\/+$/, '')
+}
+
+function validateProvider(provider: AIProviderConfig): string | undefined {
+  if (!provider.id.trim() || !/^[a-z0-9][a-z0-9-_]*$/i.test(provider.id))
+    return '供应商 ID 格式不正确'
+  if (!provider.name.trim()) return '供应商名称不能为空'
+  if (!provider.baseUrl.trim()) return 'Base URL 不能为空'
+  try {
+    const url = new URL(provider.baseUrl)
+    if (!/^https?:$/.test(url.protocol)) return 'Base URL 只支持 http/https'
+  } catch {
+    return 'Base URL 不是合法地址'
+  }
+  if (!provider.models.length) return '请至少添加一个模型'
+  if (provider.models.some((model) => !model.id.trim())) return '模型 ID 不能为空'
+  if (provider.auth.type === 'custom-header' && !provider.auth.headerName?.trim())
+    return '请填写自定义认证字段'
+  if (
+    provider.advanced.apiProtocol &&
+    !['chat-completions', 'responses'].includes(provider.advanced.apiProtocol)
+  )
+    return 'OpenAI API 接口配置不正确'
+  return undefined
+}
+
 function deepSeekProvider(baseUrl?: string, model?: string): AIProviderSummary {
   const modelId = model?.trim() || 'deepseek-chat'
   return {
     id: 'deepseek',
     name: 'DeepSeek',
     type: 'openai-compatible',
-    baseUrl: baseUrl?.trim() || 'https://api.deepseek.com',
+    baseUrl: baseUrl?.trim() || 'https://api.deepseek.com/v1',
     auth: { type: 'bearer' },
     models: [
       {
@@ -639,8 +1035,38 @@ function deepSeekProvider(baseUrl?: string, model?: string): AIProviderSummary {
     ],
     defaultModel: modelId,
     advanced: { timeoutMs: 120_000, temperature: 0.7, maxTokens: 4096, extraHeaders: {} },
+    templateId: 'deepseek',
+    role: 'chat',
     hasApiKey: false,
     isDefault: true,
+    status: 'untested'
+  }
+}
+
+function emptyProvider(
+  baseUrl: string,
+  type: AIProviderSummary['type'],
+  auth: AIProviderSummary['auth']
+): AIProviderSummary {
+  return {
+    id: 'probe',
+    name: '模型探测',
+    type,
+    baseUrl,
+    auth,
+    models: [],
+    defaultModel: '',
+    advanced: {
+      timeoutMs: 20_000,
+      temperature: 0.7,
+      maxTokens: 4096,
+      stream: false,
+      apiProtocol: 'chat-completions',
+      thinking: 'default',
+      extraHeaders: {}
+    },
+    hasApiKey: true,
+    isDefault: false,
     status: 'untested'
   }
 }
@@ -666,6 +1092,8 @@ function stripRuntimeFields(
     models: provider.models,
     defaultModel: provider.defaultModel,
     advanced: provider.advanced,
+    ...(provider.templateId ? { templateId: provider.templateId } : {}),
+    ...(provider.role ? { role: provider.role } : {}),
     status: provider.status,
     lastTestedAt: provider.lastTestedAt,
     lastError: provider.lastError
@@ -695,24 +1123,260 @@ function needsApiKey(provider: Pick<AIProviderConfig, 'type' | 'auth'>): boolean
   return provider.type !== 'ollama' && provider.auth.type !== 'none'
 }
 
-function validateProvider(provider: AIProviderConfig): string | undefined {
-  if (!provider.id.trim() || !/^[a-z0-9][a-z0-9-_]*$/i.test(provider.id))
-    return '供应商 ID 格式不正确'
-  if (!provider.name.trim()) return '供应商名称不能为空'
-  if (!provider.baseUrl.trim()) return 'Base URL 不能为空'
-  if (!provider.models.length) return '请至少添加一个模型'
-  if (provider.models.some((model) => !model.name.trim() || !model.id.trim()))
-    return '模型名称和 ID 不能为空'
-  if (!provider.models.some((model) => model.id === provider.defaultModel))
-    return '默认模型不在模型列表中'
-  if (provider.auth.type === 'custom-header' && !provider.auth.headerName?.trim())
-    return '请填写自定义认证字段'
-  if (
-    provider.advanced.apiProtocol &&
-    !['chat-completions', 'responses'].includes(provider.advanced.apiProtocol)
-  )
-    return 'OpenAI API 接口配置不正确'
-  return undefined
+function formatModelInventory(providers: AIProviderSummary[]): string {
+  const entries = providers
+    .map((provider) => {
+      const models = provider.models.map((model) => model.id).filter(Boolean)
+      return models.length ? `${provider.name}（${models.join('、')}）` : undefined
+    })
+    .filter((item): item is string => Boolean(item))
+  return entries.length ? entries.join('；') : '当前没有任何模型'
+}
+
+function protocolCandidates(provider: AIProviderSummary): Array<'chat-completions' | 'responses'> {
+  if (provider.type === 'anthropic-messages' || provider.type === 'ollama') {
+    return ['chat-completions']
+  }
+  return provider.advanced.apiProtocol === 'responses'
+    ? ['responses', 'chat-completions']
+    : ['chat-completions', 'responses']
+}
+
+/** 只有「路径不对」类的失败才值得换协议重试；模型不存在、鉴权失败重试无意义。 */
+function shouldFallbackProtocol(error: unknown): boolean {
+  if (error instanceof AIProviderRequestError) {
+    if (error.htmlInsteadOfJson) return true
+    if (error.status === 404 || error.status === 405 || error.status === 415) return true
+    const text = `${error.message} ${stringifyBody(error.responseBody)}`.toLowerCase()
+    if (/not supported by any configured account|无可用渠道|no available channel/.test(text)) {
+      return false
+    }
+    return /unknown (?:url|endpoint|path)|cannot post|method not allowed|not found/.test(text)
+  }
+  return false
+}
+
+function stringifyBody(body: unknown): string {
+  if (!body) return ''
+  if (typeof body === 'string') return body
+  try {
+    return JSON.stringify(body)
+  } catch {
+    return ''
+  }
+}
+
+const UPSTREAM_CHANNEL_HINT =
+  '这是上游（多为中转站）自身的渠道/分组报错：当前 API Key 所属分组里没有这个模型的可用渠道。到中转站后台确认分组与可用模型，或用「探测模型」读取该 Key 实际能用的模型名。'
+
+/**
+ * 把请求失败翻译成可执行的诊断。
+ * 上游原文单独保留，便于用户拿去找中转站核对，而不是被本地文案盖掉。
+ */
+function diagnoseProviderError(
+  error: unknown,
+  context: { provider: AIProviderSummary; model: string; endpoint?: string; protocol?: string }
+): AIProviderDiagnosis {
+  const endpoint =
+    context.endpoint ||
+    (() => {
+      try {
+        return context.provider.type === 'anthropic-messages'
+          ? `${normalizeBaseUrl(context.provider.baseUrl)}/messages`
+          : `${normalizeBaseUrl(context.provider.baseUrl)}/chat/completions`
+      } catch {
+        return undefined
+      }
+    })()
+  const base = {
+    endpoint,
+    protocol: context.protocol,
+    upstreamMessage: undefined as string | undefined
+  }
+
+  if (error instanceof DOMException && error.name === 'TimeoutError') {
+    return {
+      ...base,
+      code: 'TIMEOUT',
+      message: '请求超时',
+      hint: '端点没有在超时时间内返回。检查网络或代理；自建服务可以调大超时。'
+    }
+  }
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return { ...base, code: 'NETWORK', message: '请求已被取消' }
+  }
+  if (error instanceof AIProviderRequestError) {
+    const upstream = extractUpstreamMessage(error)
+    const text = upstream || error.message
+    const status = error.status
+    if (status === 401 || status === 403) {
+      return {
+        ...base,
+        code: 'AUTH',
+        httpStatus: status,
+        upstreamMessage: upstream,
+        message: `认证失败（HTTP ${status}）：${text}`,
+        hint: 'API Key 不正确、已过期，或没有这个模型的权限。到供应商后台重新生成 Key。'
+      }
+    }
+    if (status === 429) {
+      return {
+        ...base,
+        code: 'RATE_LIMIT',
+        httpStatus: status,
+        upstreamMessage: upstream,
+        message: `触发限流（HTTP 429）：${text}`,
+        hint: '稍后重试，或到供应商后台查看额度与并发限制。'
+      }
+    }
+    if (
+      /not supported by any configured account|无可用渠道|no available channel|当前分组/i.test(text)
+    ) {
+      return {
+        ...base,
+        code: 'MODEL_NOT_FOUND',
+        httpStatus: status,
+        upstreamMessage: upstream,
+        message: `上游拒绝了这个模型：${text}`,
+        hint: UPSTREAM_CHANNEL_HINT
+      }
+    }
+    if (
+      /model.*(?:not found|does not exist|unsupported|not support)|unknown model|模型不存在|无效的模型/i.test(
+        text
+      )
+    ) {
+      return {
+        ...base,
+        code: 'MODEL_NOT_FOUND',
+        httpStatus: status,
+        upstreamMessage: upstream,
+        message: `端点没有模型 ${context.model || '（未指定）'}：${text}`,
+        hint: '点「探测模型」读取端点实际提供的模型 ID，再把它加进模型列表。'
+      }
+    }
+    if (error.htmlInsteadOfJson) {
+      return {
+        ...base,
+        code: 'PROTOCOL_MISMATCH',
+        httpStatus: status,
+        upstreamMessage: upstream,
+        message: `端点返回了网页而不是 JSON（HTTP ${status || '未知'}）`,
+        hint: 'Base URL 可能少了 /v1，或路径不对；也可能需要切到另一种协议。'
+      }
+    }
+    if (status === 404) {
+      return {
+        ...base,
+        code: 'PROTOCOL_MISMATCH',
+        httpStatus: status,
+        upstreamMessage: upstream,
+        message: `接口路径不存在（HTTP 404）：${text}`,
+        hint: '确认 Base URL 是 /v1 结尾的基础地址，并且该端点实现了这套协议。'
+      }
+    }
+    return {
+      ...base,
+      code: 'UPSTREAM',
+      httpStatus: status,
+      upstreamMessage: upstream,
+      message: status ? `上游返回 HTTP ${status}：${text}` : text,
+      hint: '这是供应商侧的报错。可以点「探测模型」确认端点与模型名，或到供应商后台查看渠道状态。'
+    }
+  }
+
+  const raw = error instanceof Error ? error.message : String(error)
+  if (/ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|fetch failed|network/i.test(raw)) {
+    const local = isLocalProvider(context.provider)
+    return {
+      ...base,
+      code: 'NETWORK',
+      message: `连接不上端点：${raw}`,
+      hint: local
+        ? '本地服务可能没有启动。先确认 Ollama / LM Studio 已经在监听对应端口。'
+        : '检查网络、代理和 Base URL 的域名是否正确。'
+    }
+  }
+  return {
+    ...base,
+    code: 'UNKNOWN',
+    message: raw || '未知错误',
+    hint: '如果重复出现，把完整报错发出来排查。'
+  }
+}
+
+function extractUpstreamMessage(error: AIProviderRequestError): string | undefined {
+  const body = error.responseBody
+  if (typeof body === 'string') return body.slice(0, 400)
+  if (body && typeof body === 'object') {
+    const record = body as Record<string, unknown>
+    const candidates = [record.message, record.msg, record.error, record.detail]
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim()) return candidate.trim().slice(0, 400)
+      if (candidate && typeof candidate === 'object') {
+        const nested = (candidate as Record<string, unknown>).message
+        if (typeof nested === 'string' && nested.trim()) return nested.trim().slice(0, 400)
+      }
+    }
+  }
+  return error.message || undefined
+}
+
+function probeEndpoints(baseUrl: string, type: AIProviderSummary['type']): string[] {
+  const normalized = normalizeBaseUrl(baseUrl)
+  if (type !== 'ollama') return [`${normalized}/models`]
+  const root = normalized.replace(/\/v1$/i, '')
+  const endpoints = [`${normalized}/models`, `${root}/api/tags`]
+  return [...new Set(endpoints)]
+}
+
+function buildProbeHeaders(
+  auth: AIProviderSummary['auth'],
+  apiKey: string
+): Record<string, string> {
+  const headers: Record<string, string> = { accept: 'application/json' }
+  if (!apiKey || auth.type === 'none') return headers
+  if (auth.type === 'bearer') headers.authorization = `Bearer ${apiKey}`
+  else if (auth.type === 'x-api-key') headers['x-api-key'] = apiKey
+  else headers[auth.headerName || 'authorization'] = apiKey
+  return headers
+}
+
+function parseProbeModels(payload: unknown): AIModelProbeEntry[] {
+  if (!payload || typeof payload !== 'object') return []
+  const record = payload as Record<string, unknown>
+  const list = Array.isArray(record.data)
+    ? record.data
+    : Array.isArray(record.models)
+      ? record.models
+      : []
+  const entries: AIModelProbeEntry[] = []
+  const seen = new Set<string>()
+  for (const item of list) {
+    const id =
+      typeof item === 'string'
+        ? item
+        : item && typeof item === 'object'
+          ? String(
+              (item as Record<string, unknown>).id ||
+                (item as Record<string, unknown>).model ||
+                (item as Record<string, unknown>).name ||
+                ''
+            )
+          : ''
+    const trimmed = id.trim()
+    if (!trimmed || seen.has(trimmed.toLowerCase())) continue
+    seen.add(trimmed.toLowerCase())
+    const entry: AIModelProbeEntry = { id: trimmed }
+    if (item && typeof item === 'object') {
+      const ownedBy = (item as Record<string, unknown>).owned_by
+      const created = (item as Record<string, unknown>).created
+      if (typeof ownedBy === 'string' && ownedBy) entry.ownedBy = ownedBy
+      if (typeof created === 'number') entry.created = created
+    }
+    entries.push(entry)
+  }
+  return entries
 }
 
 function buildHeaders(provider: AIProviderSummary, apiKey: string): Record<string, string> {
@@ -981,7 +1645,12 @@ async function requestOpenAICompatibleWithTools(
   messages: Array<Record<string, unknown>>,
   tools: AIChatToolDefinition[],
   signal?: AbortSignal
-): Promise<{ data: string; toolCalls: AIChatToolCall[]; usage?: AIRequestResult['usage']; elapsedMs?: number }> {
+): Promise<{
+  data: string
+  toolCalls: AIChatToolCall[]
+  usage?: AIRequestResult['usage']
+  elapsedMs?: number
+}> {
   const endpoint = provider.baseUrl.endsWith('/chat/completions')
     ? provider.baseUrl
     : `${provider.baseUrl.replace(/\/+$/, '')}/chat/completions`
@@ -1013,7 +1682,8 @@ async function requestOpenAICompatibleWithTools(
       }
       if (!response.ok) {
         throw new AIProviderRequestError(
-          payload?.error?.message || (parseError ? safeAIError(parseError) : `AI 请求失败 (${response.status})`),
+          payload?.error?.message ||
+            (parseError ? safeAIError(parseError) : `AI 请求失败 (${response.status})`),
           {
             status: timing.status,
             contentType: timing.contentType,
@@ -1034,7 +1704,13 @@ async function requestOpenAICompatibleWithTools(
         toolCalls: (message?.tool_calls || []).flatMap((call, index) => {
           const name = call.function?.name
           if (!name) return []
-          return [{ id: call.id || `tool-call-${index + 1}`, name, arguments: call.function?.arguments || '{}' }]
+          return [
+            {
+              id: call.id || `tool-call-${index + 1}`,
+              name,
+              arguments: call.function?.arguments || '{}'
+            }
+          ]
         }),
         usage: toOpenAIUsage(payload.usage),
         elapsedMs: timing.elapsedMs

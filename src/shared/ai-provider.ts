@@ -1,3 +1,12 @@
+/**
+ * AI 供应商类型定义。
+ *
+ * 设计取自 goutou 的 providers 表与 CC Switch 的「一个供应商 = 一个端点 + 一组模型」模型：
+ * 路由只认显式声明的 provider + model，不再通过 Base URL / 模型族 / 分组去推断归属。
+ * 旧配置里的 registryId / group / accountId / supportedModels / role 仍然原样保留，
+ * 读取时不做任何强制归属判断，写回时也不删除，保证 ai-providers.json 向后兼容。
+ */
+
 export type AIProviderType =
   | 'openai-compatible'
   | 'anthropic-messages'
@@ -18,10 +27,7 @@ export interface AIProviderAuth {
 export interface AIModelCapabilities {
   chat: boolean
   vision: boolean
-  /**
-   * OCR 是 vision 能力的派生(几乎所有 vision 模型都能 OCR)。
-   * 不作为用户独立配置项,UI 上显示为"图片文字识别"标签。
-   */
+  /** OCR 是 vision 的派生能力，UI 上作为「图片文字识别」标签呈现。 */
   ocr: boolean
   longContext: boolean
 }
@@ -31,6 +37,8 @@ export interface AIModelDefinition {
   id: string
   capabilities: AIModelCapabilities
   maxTokens?: number
+  /** 来自端点探测（/v1/models）而不是手工添加。 */
+  detected?: boolean
 }
 
 export interface AIProviderAdvancedSettings {
@@ -43,6 +51,8 @@ export interface AIProviderAdvancedSettings {
   extraHeaders: Record<string, string>
 }
 
+export type AIProviderRole = 'chat' | 'strategy' | 'both'
+
 export interface AIProviderConfig {
   id: string
   name: string
@@ -53,14 +63,54 @@ export interface AIProviderConfig {
   models: AIModelDefinition[]
   defaultModel: string
   advanced: AIProviderAdvancedSettings
+  /** 供应商模板 ID（catalog 里的条目），只用于回填默认值与界面展示。 */
+  templateId?: string
+  note?: string
+  /** 旧配置字段：保留但不参与任何路由或校验。 */
+  registryId?: string
+  group?: string
+  accountId?: string
+  supportedModels?: string[]
+  role?: AIProviderRole
+}
+
+export type AIProviderStatus = 'untested' | 'connected' | 'error'
+
+/** 结构化诊断：UI 直接显示 message + hint，不再把上游原文拼成一句长错误。 */
+export type AIProviderDiagnosisCode =
+  | 'OK'
+  | 'NO_PROVIDER'
+  | 'NO_MODEL'
+  | 'MISSING_API_KEY'
+  | 'INVALID_BASE_URL'
+  | 'NETWORK'
+  | 'AUTH'
+  | 'MODEL_NOT_FOUND'
+  | 'PROTOCOL_MISMATCH'
+  | 'RATE_LIMIT'
+  | 'TIMEOUT'
+  | 'EMPTY_RESPONSE'
+  | 'UPSTREAM'
+  | 'UNKNOWN'
+
+export interface AIProviderDiagnosis {
+  code: AIProviderDiagnosisCode
+  message: string
+  hint?: string
+  httpStatus?: number
+  /** 上游返回的原始 error.message，便于核对中转站的分组/渠道文案。 */
+  upstreamMessage?: string
+  endpoint?: string
+  protocol?: string
 }
 
 export interface AIProviderSummary extends Omit<AIProviderConfig, 'apiKey'> {
   hasApiKey: boolean
   isDefault: boolean
-  status: 'untested' | 'connected' | 'error'
+  status: AIProviderStatus
   lastTestedAt?: number
   lastError?: string
+  lastDiagnosis?: AIProviderDiagnosis
 }
 
 export interface AIProviderListResult {
@@ -68,6 +118,31 @@ export interface AIProviderListResult {
   providers: AIProviderSummary[]
   defaultProviderId?: string
   error?: string
+  /** 保存时自动修正的内容（协议、模型去重、模板偏差），不是错误。 */
+  notices?: string[]
+}
+
+export interface AIProviderProbeRequest {
+  providerId?: string
+  baseUrl?: string
+  apiKey?: string
+  type?: AIProviderType
+  timeoutMs?: number
+}
+
+export interface AIModelProbeEntry {
+  id: string
+  ownedBy?: string
+  created?: number
+}
+
+export interface AIProviderProbeResult {
+  success: boolean
+  models: AIModelProbeEntry[]
+  endpoint?: string
+  latencyMs?: number
+  error?: string
+  diagnosis?: AIProviderDiagnosis
 }
 
 export interface AIRuntimeModelConfig {
@@ -76,7 +151,7 @@ export interface AIRuntimeModelConfig {
   model: string
   modelName: string
   configured: boolean
-  status: AIProviderSummary['status']
+  status: AIProviderStatus
   timeoutMs?: number
 }
 
@@ -132,6 +207,7 @@ export interface AIConnectionTestResult {
   success: boolean
   error?: string
   latencyMs?: number
+  diagnosis?: AIProviderDiagnosis
 }
 
 export interface AIVisionTestRequest {
