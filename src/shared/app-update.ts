@@ -1,4 +1,4 @@
-export const APP_UPDATE_RELEASES_URL = 'https://github.com/Wxw-Gu/TraceMemo/releases/latest'
+export const APP_UPDATE_RELEASES_URL = 'https://github.com/756066377/TraceMemo/releases/latest'
 
 export type AppUpdateStatus =
   | 'idle'

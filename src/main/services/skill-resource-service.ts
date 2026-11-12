@@ -8,7 +8,7 @@ const SKILL_RELATIVE_PATHS = [
   join('skill', 'tracememo-reader', 'SKILL.md'),
   join('skill', 'wechatexplorer-reader', 'SKILL.md')
 ]
-const GITHUB_URL = 'https://github.com/Wxw-Gu/TraceMemo/tree/main/docs/skill/tracememo-reader'
+const GITHUB_URL = 'https://github.com/756066377/TraceMemo/tree/nearcast/docs/skill/tracememo-reader'
 
 export const READER_SKILL_NAME = 'tracememo-reader'
 

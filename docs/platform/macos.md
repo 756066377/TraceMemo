@@ -87,7 +87,7 @@ done
 
 输出里带 `arm64` 的是 Apple 芯片版，带 `x86_64` 的是 Intel 版。
 
-解决办法是从 [Releases](https://github.com/Wxw-Gu/TraceMemo/releases) 下载文件名带 `arm64` 的包，替换现有应用后重启。已保存的数据库密钥和连接配置不需要重新设置。
+解决办法是从 [Releases](https://github.com/756066377/TraceMemo/releases) 下载文件名带 `arm64` 的包，替换现有应用后重启。已保存的数据库密钥和连接配置不需要重新设置。
 
 这与[提示「无法读取微信数据库」](#提示无法读取微信数据库时)不是同一个问题：那边是系统授权失效，这里是装错了版本。两种情况的处理方式不同，都不需要关闭 SIP。
 

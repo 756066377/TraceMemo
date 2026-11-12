@@ -39,7 +39,7 @@ Apple Silicon 和 Intel 均已适配微信 macOS `4.1.13` 系列。首次获取�
 
 ## 2. 安装并启动
 
-安装包统一从 [GitHub Releases](https://github.com/Wxw-Gu/TraceMemo/releases) 下载。
+安装包统一从 [GitHub Releases](https://github.com/756066377/TraceMemo/releases) 下载。
 
 ### Windows
 

@@ -1563,7 +1563,7 @@ let appUpdateState = updateSimulation
 let openedUpdateDownloadUrl = ''
 handle('app-update:getState', () => appUpdateState)
 handle('app-update:openDownloadPage', () => {
-  openedUpdateDownloadUrl = 'https://github.com/Wxw-Gu/TraceMemo/releases/latest'
+  openedUpdateDownloadUrl = 'https://github.com/756066377/TraceMemo/releases/latest'
   return { success: true }
 })
 handle('app-update:getOpenedDownloadUrl', () => openedUpdateDownloadUrl)
