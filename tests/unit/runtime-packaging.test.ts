@@ -19,6 +19,31 @@ const asar = nodeRequire('@electron/asar') as {
 const { hasWindowsSherpaRuntime } = nodeRequire('../../scripts/prepare-win-runtime.cjs') as {
   hasWindowsSherpaRuntime: (runtimeRoot: string) => boolean
 }
+const { createBuilderConfig } = nodeRequire('../../scripts/build-macos-edition.cjs') as {
+  createBuilderConfig: (options: {
+    edition: 'public' | 'native'
+    stageRoot: string
+    buildOutput: string
+    outputRoot: string
+    appVersion: string
+  }) => {
+    files: Array<string | { from?: string; to?: string }>
+    extraResources: Array<{ from: string; to: string }>
+    dmg: { artifactName: string }
+  }
+}
+const { resolveEditionRoots, validateLicenseStatusRoute } = nodeRequire(
+  '../../scripts/prepare-macos-edition.cjs'
+) as {
+  resolveEditionRoots: (
+    projectRoot?: string,
+    env?: NodeJS.ProcessEnv
+  ) => {
+    stageRoot: string
+    outputRoot: string
+  }
+  validateLicenseStatusRoute: (hostPath: string) => void
+}
 const {
   validateAsarRuntimeDependencies,
   validateFfmpegRuntime,
@@ -32,7 +57,11 @@ const {
   signMacosAppBundle
 } = nodeRequire('../../scripts/after-pack.cjs') as {
   validateAsarRuntimeDependencies: (runtimeResources: string) => void
-  validateFfmpegRuntime: (runtimeResources: string, platform?: NodeJS.Platform) => void
+  validateFfmpegRuntime: (
+    runtimeResources: string,
+    platform?: NodeJS.Platform,
+    edition?: string
+  ) => string
   validateKoffiRuntime: (runtimeResources: string, platform: NodeJS.Platform, arch: string) => void
   validateReaderSkillRuntime: (runtimeResources: string) => string
   validateSherpaRuntime: (runtimeResources: string, platform: NodeJS.Platform, arch: string) => void
@@ -246,6 +275,79 @@ describe('production runtime packaging', () => {
     expect(config).toContain('node_modules/ffmpeg-static/**')
   })
 
+  it('requires staged arm64 edition ffmpeg before removing the shared binary', () => {
+    const resources = join(root, 'edition-ffmpeg-resources')
+    const shared = join(resources, 'app.asar.unpacked', 'node_modules', 'ffmpeg-static', 'ffmpeg')
+    mkdirSync(dirname(shared), { recursive: true })
+    writeFileSync(shared, 'existing shared binary')
+    expect(() => validateFfmpegRuntime(resources, 'darwin', 'public')).toThrow(
+      /staged macOS ffmpeg/
+    )
+    expect(readFileSync(shared, 'utf8')).toBe('existing shared binary')
+  })
+
+  it('builds each edition from an isolated native resource allowlist', () => {
+    const stageRoot = join(root, 'mac-staging', 'public')
+    const config = createBuilderConfig({
+      edition: 'public',
+      stageRoot,
+      buildOutput: join(stageRoot, 'out'),
+      outputRoot: join(root, 'dist', 'mac', 'public'),
+      appVersion: '2.5.2'
+    })
+    expect(config.extraResources.map((item) => item.to)).toEqual([
+      'resources',
+      'app-update.yml',
+      'skill/tracememo-reader'
+    ])
+    expect(config.extraResources[0].from).toBe(join(stageRoot, 'resources'))
+    expect(config.files).toContainEqual({
+      from: join(stageRoot, 'out'),
+      to: 'out',
+      filter: ['**/*']
+    })
+    expect(config.files).toContain('package.json')
+    expect(
+      config.files.some(
+        (item) => typeof item === 'string' && !item.startsWith('!') && item.includes('resources')
+      )
+    ).toBe(false)
+    expect(config.dmg.artifactName).toBe('TraceMemo-2.5.2-mac-arm64-oss.dmg')
+    const nativeConfig = createBuilderConfig({
+      edition: 'native',
+      stageRoot: join(root, 'mac-staging', 'native'),
+      buildOutput: join(root, 'mac-staging', 'native', 'out'),
+      outputRoot: join(root, 'dist', 'mac', 'native'),
+      appVersion: '2.5.2'
+    })
+    expect(nativeConfig.dmg.artifactName).toBe('TraceMemo-2.5.2-mac-arm64-native.dmg')
+  })
+
+  it('supports isolated macOS staging and output roots without changing defaults', () => {
+    // 用 join 构造期望值，Windows 上分隔符才一致（上游在 macOS 上开发时写死了 POSIX 路径）。
+    expect(resolveEditionRoots('/repo', {})).toEqual({
+      stageRoot: resolve('/repo', 'build', 'mac-staging'),
+      outputRoot: resolve('/repo', 'dist', 'mac')
+    })
+    expect(
+      resolveEditionRoots('/repo', {
+        TRACEMEMO_MAC_STAGE_ROOT: '/tmp/candidate/staging',
+        TRACEMEMO_MAC_OUTPUT_ROOT: '/tmp/candidate/output'
+      })
+    ).toEqual({
+      stageRoot: resolve('/tmp/candidate/staging'),
+      outputRoot: resolve('/tmp/candidate/output')
+    })
+  })
+
+  it('rejects a native Host that cannot serve the license status route', () => {
+    const host = join(root, 'license-route-host')
+    writeFileSync(host, 'GET /healthz')
+    expect(() => validateLicenseStatusRoute(host)).toThrow(/GET \/license\/status/)
+    writeFileSync(host, 'GET /healthz GET /license/status')
+    expect(() => validateLicenseStatusRoute(host)).not.toThrow()
+  })
+
   it('requires the matching Windows and macOS sherpa native runtime', () => {
     const resources = join(root, 'sherpa-resources')
     const unpacked = join(resources, 'app.asar.unpacked', 'node_modules')
@@ -400,6 +502,19 @@ describe('production runtime packaging', () => {
     expect(stub.calls.filter((args) => args[0] === '--force')).toEqual([])
     expect(stub.calls).toContainEqual(['--verify', '--strict', '--arch', 'arm64', helperPath])
     expect(stub.calls).toContainEqual(['--verify', '--strict', '--arch', 'x86_64', helperPath])
+  })
+
+  it('always re-signs the Native Host before packaging', () => {
+    const runtimeDirectory = join(root, 'runtime-sign-resources', 'runtime', 'darwin-arm64')
+    mkdirSync(runtimeDirectory, { recursive: true })
+    const hostPath = join(runtimeDirectory, 'tm-wechat-host')
+    writeFileSync(hostPath, 'fixture')
+    const stub = createCodesignStub()
+
+    expect(signMacosHelpers(join(root, 'runtime-sign-resources'), stub.run)).toEqual([hostPath])
+    expect(stub.calls[0]).toEqual(['--force', '--sign', '-', hostPath])
+    expect(stub.calls).toContainEqual(['--verify', '--strict', '--arch', 'arm64', hostPath])
+    expect(stub.calls).toContainEqual(['--verify', '--strict', '--arch', 'x86_64', hostPath])
   })
 
   it('fails packaging when a helper signature cannot be repaired', () => {
@@ -624,6 +739,13 @@ describe('send runtime packaging boundary', () => {
       expect(command).not.toContain('electron-builder.send-runtime.yml')
       expect(command).not.toContain('TM_SEND_RUNTIME_BUILD')
     }
+
+    expect(pkg.scripts['release:mac:arm64']).toContain(
+      '--config.directories.output=dist/release/mac-arm64'
+    )
+    expect(pkg.scripts['release:mac:x64']).toContain(
+      '--config.directories.output=dist/release/mac-x64'
+    )
   })
 
   it('excludes the send runtime in the default builder config', () => {

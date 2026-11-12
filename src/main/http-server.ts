@@ -6,7 +6,7 @@ import {
   isReady,
   listContacts,
   listContactsAsync,
-  listMessages,
+  listMessagesAsync,
   getGroupSnapshot,
   listRecentChat,
   resolveMd5,
@@ -433,7 +433,7 @@ const routes: Record<string, RouteHandler> = {
     sendJson(res, 200, { count: items.length, items })
   }),
 
-  '/api/v1/chatlog': withMethods(['GET'], ({ res, url }) => {
+  '/api/v1/chatlog': withMethods(['GET'], async ({ res, url }) => {
     if (!isReady()) return sendError(res, 503, 'TraceMemo 数据库未初始化')
     const talker = url.searchParams.get('talker')
     if (!talker) return sendError(res, 400, '缺少必要参数 talker')
@@ -462,7 +462,15 @@ const routes: Record<string, RouteHandler> = {
       }
     }
 
-    const messages = listMessages(resolved.md5, startTime, endTime)
+    // A quiet time window can fall back to a long native history scan. Use the
+    // asynchronous, time-filtered shard reader so it cannot block /health or the UI.
+    const messages = await listMessagesAsync(
+      resolved.md5,
+      startTime,
+      endTime,
+      undefined,
+      String(res.getHeader('X-Request-Id') || '')
+    )
     sendJson(res, 200, {
       contact: resolved,
       query: { talker, time: timeParam, startTime, endTime },
@@ -690,7 +698,21 @@ function parseWechatSendPayload(payload: unknown): ParsedWechatSend {
         message: `text 长度 ${text.length} 超过上限 ${WECHAT_SEND_MAX_TEXT_LENGTH} 字符`
       }
     }
-    content = { type: 'text', text }
+    let at: Record<string, string> | undefined
+    if (body.at !== undefined) {
+      if (!body.at || typeof body.at !== 'object' || Array.isArray(body.at)) {
+        return { ok: false, status: 400, code: 'INVALID_REQUEST', message: 'at 必须是 wxid 到显示名称的对象' }
+      }
+      const entries = Object.entries(body.at as Record<string, unknown>)
+      if (entries.length > 50 || entries.some(([wxid, name]) => !wxid.trim() || typeof name !== 'string')) {
+        return { ok: false, status: 400, code: 'INVALID_REQUEST', message: 'at 最多支持 50 个有效成员' }
+      }
+      if (recipient.type !== 'group') {
+        return { ok: false, status: 400, code: 'INVALID_REQUEST', message: 'at 只能用于群聊' }
+      }
+      at = Object.fromEntries(entries.map(([wxid, name]) => [wxid.trim(), String(name).trim()]))
+    }
+    content = { type: 'text', text, ...(at ? { at } : {}) }
   } else {
     const filePath = readSendString(body.filePath)
     if (!filePath) {
@@ -755,6 +777,19 @@ function createWechatSendRoute(
   pathname: string,
   deps: WechatSendApiDependencies
 ): RouteHandler | undefined {
+  // 语音发送必须带「当前账号 wxid」：Windows hook 的语音对象需要它。
+  // IPC 路径一直有（index.ts 里的 chat.getSelfAccountInfoAsync），HTTP 路径漏了，
+  // 表现为 type=voice 一律 SEND_FAILED「无法识别当前微信账号 wxid」。
+  // 懒加载，避免 http-server 与 chat-service 形成静态循环依赖。
+  const resolveSelfWxid = async (): Promise<string> => {
+    try {
+      const chat = await import('./services/chat-service')
+      const self = await chat.getSelfAccountInfoAsync()
+      return String(self?.wxid || '').trim()
+    } catch {
+      return ''
+    }
+  }
   if (pathname !== WECHAT_SEND_ROUTE) return undefined
 
   return withMethods(['POST'], async ({ res, body }) => {
@@ -815,13 +850,15 @@ function createWechatSendRoute(
 
     let result: WechatActionResult
     try {
+      const fromId = contentType === 'voice' ? await resolveSelfWxid() : ''
       result = await deps.execute({
         origin: 'http_api',
         purpose: `api_${contentType}` as WechatActionRequest['purpose'],
         triggerType: 'user',
         recipient: parsed.recipient,
         content: parsed.content,
-        ...(parsed.idempotencyKey ? { idempotencyKey: parsed.idempotencyKey } : {})
+        ...(parsed.idempotencyKey ? { idempotencyKey: parsed.idempotencyKey } : {}),
+        ...(fromId ? { metadata: { fromId } } : {})
       })
     } catch (error) {
       return sendWechatSendError(res, 500, 'INTERNAL_ERROR', '微信发送执行失败', {

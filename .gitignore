@@ -31,6 +31,7 @@ task_plan.md
 /goutoujunshi-jev-chat/
 
 *tm-wcdb-config-helper*
+*libtmlicense*
 debug-originals
 
 # WeChat-Hook 的 DLL 是第三方二进制，不提交；manifest.json 里的目录契约要提交。
@@ -44,3 +45,5 @@ debug-originals
 # 本地验证与宣传图产物目录，不入库。
 /output/
 /Lightvela.png
+
+/build/mac-staging/

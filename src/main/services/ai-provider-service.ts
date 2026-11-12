@@ -1034,7 +1034,7 @@ function deepSeekProvider(baseUrl?: string, model?: string): AIProviderSummary {
       }
     ],
     defaultModel: modelId,
-    advanced: { timeoutMs: 120_000, temperature: 0.7, maxTokens: 4096, extraHeaders: {} },
+    advanced: { timeoutMs: 120_000, temperature: 0.7, maxTokens: 40960, extraHeaders: {} },
     templateId: 'deepseek',
     role: 'chat',
     hasApiKey: false,

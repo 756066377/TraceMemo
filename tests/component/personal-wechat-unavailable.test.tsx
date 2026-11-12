@@ -41,6 +41,10 @@ describe('personal WeChat unavailable product state', () => {
     Object.defineProperty(window, 'api', {
       configurable: true,
       value: {
+        getMacSendRuntimeAvailability: vi.fn(async () => ({
+          state: 'available',
+          message: '微信发送组件可用'
+        })),
         getPersonalWechatSendCapability: vi.fn(async () => ({
           supported: true,
           ready: false,
@@ -50,7 +54,19 @@ describe('personal WeChat unavailable product state', () => {
           message: '暂无发送能力',
           error: '暂无发送能力'
         })),
-        getPersonalWechatSenderStatus: vi.fn(async () => unavailableStatus)
+        getPersonalWechatSenderStatus: vi.fn(async () => unavailableStatus),
+        getMacLicenseStatus: vi.fn(async () => ({
+          deviceId: `mac_${'c'.repeat(64)}`,
+          state: 'unlicensed',
+          authorized: false,
+          source: 'none',
+          features: [],
+          lastCheckedAt: null,
+          licenseExpiresAt: null,
+          tokenExpiresAt: null,
+          message: '当前设备暂无发送能力授权'
+        })),
+        refreshMacLicense: vi.fn()
       }
     })
   })
@@ -76,6 +92,87 @@ describe('personal WeChat unavailable product state', () => {
     expect(screen.queryByText('查看支持的微信版本')).not.toBeInTheDocument()
     expect(screen.queryByText('高级诊断')).not.toBeInTheDocument()
     expect(screen.queryByText(/manifest|dylib|runtime missing|文件缺失/i)).not.toBeInTheDocument()
+  })
+
+  it('shows a runtime startup failure instead of an endless checking message', () => {
+    const failedRuntimeStatus: PersonalWechatSenderStatus = {
+      ...unavailableStatus,
+      state: 'error',
+      endpointReady: false,
+      runtimeReady: false,
+      message: '发送运行时启动失败（进程退出码 1）',
+      error: '发送运行时启动失败（进程退出码 1）'
+    }
+
+    render(
+      <PersonalWechatSetupGuide
+        senderStatus={failedRuntimeStatus}
+        binding={false}
+        detecting={false}
+        sessionBound={false}
+        showBindAction={false}
+      />
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent('发送运行时启动失败（进程退出码 1）')
+    expect(screen.queryByText('正在检查 发送运行时…')).not.toBeInTheDocument()
+  })
+
+  it('describes a ready runtime separately from pending send capability initialization', () => {
+    const boundStatus: PersonalWechatSenderStatus = {
+      ...unavailableStatus,
+      state: 'hook_not_ready',
+      wechatRunning: true,
+      wechatPid: 4668,
+      boundWechatPid: 4668,
+      endpointReady: true,
+      runtimeReady: true,
+      attachReady: true,
+      baseAddressReady: true,
+      message: '已绑定，等待发送 hook 就绪'
+    }
+
+    render(
+      <PersonalWechatSetupGuide
+        senderStatus={boundStatus}
+        binding={false}
+        detecting={false}
+        sessionBound
+        showBindAction={false}
+      />
+    )
+
+    expect(screen.getByText('微信已绑定，正在等待发送能力完成初始化…')).toBeVisible()
+    expect(screen.queryByText('正在等待发送运行时完成初始化…')).not.toBeInTheDocument()
+  })
+
+  it('does not say the runtime is still initializing when it is ready but message capabilities are pending', () => {
+    const boundButInitializing: PersonalWechatSenderStatus = {
+      ...unavailableStatus,
+      state: 'hook_not_ready',
+      wechatRunning: true,
+      wechatPid: 4668,
+      boundWechatPid: 4668,
+      endpointReady: true,
+      runtimeReady: true,
+      attachReady: true,
+      baseAddressReady: true,
+      message: '已绑定，等待发送 hook 就绪'
+    }
+
+    render(
+      <PersonalWechatSetupGuide
+        senderStatus={boundButInitializing}
+        binding={false}
+        detecting={false}
+        sessionBound
+        showBindAction={false}
+        showBindingInstructionsInInitialization
+      />
+    )
+
+    expect(screen.getByText('微信已绑定，正在等待发送能力完成初始化…')).toBeVisible()
+    expect(screen.queryByText('正在等待发送运行时完成初始化…')).not.toBeInTheDocument()
   })
 
   it('shows the disabled binding flow on the settings page', async () => {

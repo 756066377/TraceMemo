@@ -90,6 +90,7 @@ specifiers:
   vitest: ^4.1.10
   wechat-emojis: ^1.0.2
   wrangler: ^4.28.1
+  yaml: ^2.9.1
 
 dependencies:
   '@electron-toolkit/preload': 3.0.2_electron@43.1.0
@@ -175,9 +176,10 @@ devDependencies:
   tailwindcss: 4.3.5
   tailwindcss-animate: 1.0.7_tailwindcss@4.3.5
   typescript: 5.9.3
-  vite: 7.2.7_kx7yyowhop237vgn7dp2p54shq
+  vite: 7.2.7_igzmojqwaz4ghse7wubc2ebgli
   vitest: 4.1.10_vx7uwpt5cwqrhusdpoa262p5gm
   wrangler: 4.113.0
+  yaml: 2.9.1
 
 packages:
 
@@ -3539,7 +3541,7 @@ packages:
       '@rolldown/pluginutils': 1.0.0-beta.53
       '@types/babel__core': 7.20.5
       react-refresh: 0.18.0
-      vite: 7.2.7_kx7yyowhop237vgn7dp2p54shq
+      vite: 7.2.7_igzmojqwaz4ghse7wubc2ebgli
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -3591,7 +3593,7 @@ packages:
       '@vitest/spy': 4.1.10
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 7.2.7_kx7yyowhop237vgn7dp2p54shq
+      vite: 7.2.7_igzmojqwaz4ghse7wubc2ebgli
     dev: true
 
   /@vitest/pretty-format/4.1.10:
@@ -4807,7 +4809,7 @@ packages:
       esbuild: 0.25.12
       magic-string: 0.30.21
       picocolors: 1.1.1
-      vite: 7.2.7_kx7yyowhop237vgn7dp2p54shq
+      vite: 7.2.7_igzmojqwaz4ghse7wubc2ebgli
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -5589,7 +5591,7 @@ packages:
 
   /glob/7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
-    deprecated: Glob versions prior to v9 are no longer supported
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     dependencies:
       fs.realpath: 1.0.0
       inflight: 1.0.6
@@ -8323,7 +8325,7 @@ packages:
     dev: true
     optional: true
 
-  /vite/7.2.7_kx7yyowhop237vgn7dp2p54shq:
+  /vite/7.2.7_igzmojqwaz4ghse7wubc2ebgli:
     resolution: {integrity: sha512-ITcnkFeR3+fI8P1wMgItjGrR10170d8auB4EpMLPqmx6uxElH3a/hHGQabSHKdqd4FXWO1nFIp9rRn7JQ34ACQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
@@ -8371,6 +8373,7 @@ packages:
       rollup: 4.53.3
       sass: 1.102.0
       tinyglobby: 0.2.15
+      yaml: 2.9.1
     optionalDependencies:
       fsevents: 2.3.3
     dev: true
@@ -8437,7 +8440,7 @@ packages:
       tinyexec: 1.2.4
       tinyglobby: 0.2.15
       tinyrainbow: 3.1.1
-      vite: 7.2.7_kx7yyowhop237vgn7dp2p54shq
+      vite: 7.2.7_igzmojqwaz4ghse7wubc2ebgli
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - msw
@@ -8681,6 +8684,12 @@ packages:
 
   /yallist/4.0.0:
     resolution: {integrity: sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A==}
+    dev: true
+
+  /yaml/2.9.1:
+    resolution: {integrity: sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
     dev: true
 
   /yargs-parser/18.1.3:

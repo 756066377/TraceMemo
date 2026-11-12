@@ -15,6 +15,29 @@ export type MacWechatRuntimeLifecycle =
   | 'crashed_unbound' // died while unbound — safe to auto-restart
   | 'crashed_bound' // died while bound — WeChat keeps an orphan agent
 
+export type MacWechatSendRuntimeAvailability = 'unavailable' | 'component_error' | 'available'
+
+export interface MacWechatSendRuntimeAvailabilityResult {
+  state: MacWechatSendRuntimeAvailability
+  message: string
+}
+
+export interface MacWechatResidualProcess {
+  pid: number
+  name: string
+  state?: string
+  /** 明确处于内核不可中断等待状态。 */
+  uninterruptible?: boolean
+  targets: Array<'wechat' | 'host' | 'port_4290' | 'frida_helper'>
+  confirmationToken: string
+}
+
+export interface MacWechatResidualCleanupResult {
+  stopped: MacWechatResidualProcess[]
+  remaining: MacWechatResidualProcess[]
+  runtimeStopped: boolean
+}
+
 export type MacWechatHostRuntimeState =
   | 'not_initialized'
   | 'wechat_not_running'
@@ -45,6 +68,16 @@ export interface MacWechatRuntimeManifest {
   addressProfileSha256: string
   supportedWechatVersions: string[]
   capabilities: Array<'text' | 'image' | 'voice'>
+  capabilitiesByVersion?: Record<
+    string,
+    {
+      text?: 'verified' | 'addresses-only' | 'unsupported'
+      image?: 'verified' | 'addresses-only' | 'unsupported'
+      voice?: 'verified' | 'addresses-only' | 'unsupported'
+      downloadImage?: 'verified' | 'addresses-only' | 'unsupported'
+      textMechanism?: string
+    }
+  >
 }
 
 export interface MacWechatBindingStatus {
@@ -60,7 +93,6 @@ export interface MacWechatBindingStatus {
   wechatPid: number
   wechatVersion?: string
   supported: boolean
-  supportedVersions?: string
   bindingState: MacWechatBindingState
   bound: boolean
   boundWechatPid: number
@@ -81,8 +113,9 @@ export interface MacWechatRuntimeSnapshot {
   wechatRestartRequired: boolean
   endpoint: string
   port: number
+  /** 自动切换端口时记录首选端口。 */
+  portFallbackFrom?: number
   runtimeDir?: string
-  manifest?: MacWechatRuntimeManifest
   error?: string
   binding?: MacWechatBindingStatus
 }

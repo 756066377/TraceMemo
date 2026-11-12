@@ -5,7 +5,8 @@ import crypto from 'crypto'
 import { createRequire } from 'module'
 import { createConnection, Socket } from 'net'
 import { getResourceRoots } from './resource-paths'
-import { wcdbDebugLog } from './wcdb-debug'
+import { resolveWcdbLibrary } from './native-runtime-paths'
+import { wcdbDebugLog, isWcdbDebugEnabled } from './wcdb-debug'
 import { looksLikePermissionDenied, PathAccessDeniedError } from './services/path-access-probe'
 import type { ImageMessageCountProbe } from '../shared/image-text-index'
 import { imageTextWindowToSeconds } from '../shared/image-text-index'
@@ -147,6 +148,71 @@ type KoffiModule = {
 // library reference for every Wcdb4Client instance.
 let wcdbBootstrapLib: KoffiLibrary | null = null
 
+const DB_COMPONENT_UNAVAILABLE_MESSAGE = '本地数据库组件初始化失败，请确认应用安装完整。'
+
+class NativeDbInitError extends Error {
+  readonly nativeCode: number
+  readonly phase: string
+
+  constructor(message: string, nativeCode: number, phase: string) {
+    super(message)
+    this.name = 'NativeDbInitError'
+    this.nativeCode = nativeCode
+    this.phase = phase
+  }
+}
+
+// -3002 一码四因（密钥错、不存在、不可读、损坏），先看文件系统事实再判码。
+function describeDbOpenFailure(code: number, sessionDbPath: string): string {
+  if (code === -2003) return DB_COMPONENT_UNAVAILABLE_MESSAGE
+
+  let exists = false
+  try {
+    exists = Boolean(sessionDbPath) && fs.existsSync(sessionDbPath)
+  } catch {
+    exists = false
+  }
+  if (!exists) {
+    return '未找到微信数据库文件，请确认微信已登录目标账号，并重新选择数据目录。'
+  }
+
+  try {
+    fs.accessSync(sessionDbPath, fs.constants.R_OK)
+  } catch {
+    return '数据库文件不可读，请在系统设置中授予文件访问权限后重试。'
+  }
+
+  if (code === -3002) {
+    return '数据库无法打开：密钥与当前账号不匹配，或数据库文件已损坏。'
+  }
+  return '本地数据库初始化失败，请稍后重试。'
+}
+
+class NativeWcdbError extends Error {
+  readonly nativeCode: number
+  readonly phase = 'query'
+
+  constructor(nativeCode: number) {
+    super(describeWcdbQueryFailure(nativeCode))
+    this.name = 'NativeWcdbError'
+    this.nativeCode = nativeCode
+  }
+}
+
+function describeWcdbQueryFailure(code: number): string {
+  if (code === -2003) return DB_COMPONENT_UNAVAILABLE_MESSAGE
+  if (code === -3003 || code === -3004) {
+    return '读取微信数据库失败：密钥可能与该账号不匹配，或数据库文件已损坏。'
+  }
+  if (code === -3006) return '数据库连接已失效，请重新连接。'
+  return '本地数据库读取失败，请稍后重试。'
+}
+
+export function getNativeErrorCode(error: unknown): number | null {
+  const code = (error as { nativeCode?: unknown } | null | undefined)?.nativeCode
+  return typeof code === 'number' ? code : null
+}
+
 let wcdbBootstrapAsyncPromise: Promise<KoffiLibrary> | null = null
 
 export function bootstrapWcdbNative(libPath?: string, libDirOverride?: string): KoffiLibrary {
@@ -205,16 +271,28 @@ export function bootstrapWcdbNative(libPath?: string, libDirOverride?: string): 
     }
   }
   if (!initOk) {
-    console.warn(
-      `[WCDB4] bootstrap InitProtection 返回 ${lastCode}，继续尝试 wcdb_init/open; tried=${resourceRoots.join(' | ')}`
-    )
+    if (lastCode === -2003) {
+      // -2003 重试无效；其他非 0 仍要继续，兼容旧构建。
+      throw new NativeDbInitError(DB_COMPONENT_UNAVAILABLE_MESSAGE, lastCode, 'InitProtection')
+    }
+    if (isWcdbDebugEnabled()) {
+      console.warn(
+        `[WCDB4] bootstrap InitProtection rc=${lastCode}，继续尝试 wcdb_init/open; tried=${resourceRoots.join(' | ')}`
+      )
+    } else {
+      console.warn('[WCDB4] bootstrap InitProtection 未成功，继续尝试后续初始化')
+    }
   } else {
     const wcdbInit = lib.func('int32 wcdb_init()') as () => number
     console.log('[WCDB4] bootstrap wcdb_init begin')
     const initRc = Number(wcdbInit())
     console.log(`[WCDB4] bootstrap wcdb_init rc=${initRc}`)
     if (initRc !== 0) {
-      console.warn(`[WCDB4] bootstrap wcdb_init 返回 ${initRc}，继续尝试 wcdb_open_account`)
+      console.warn(
+        isWcdbDebugEnabled()
+          ? `[WCDB4] bootstrap wcdb_init rc=${initRc}，继续尝试 wcdb_open_account`
+          : '[WCDB4] bootstrap wcdb_init 未成功，继续尝试打开数据库'
+      )
     }
   }
 
@@ -261,15 +339,20 @@ export function bootstrapWcdbNativeAsync(
       )
     )
     let initOk = false
+    let lastInitCode = -1
     for (const resourceRoot of resourceRoots) {
       try {
-        if (Number(initProtection(resourceRoot)) === 0) {
+        lastInitCode = Number(initProtection(resourceRoot))
+        if (lastInitCode === 0) {
           initOk = true
           break
         }
       } catch {
         // Try the next resource root.
       }
+    }
+    if (!initOk && lastInitCode === -2003) {
+      throw new NativeDbInitError(DB_COMPONENT_UNAVAILABLE_MESSAGE, lastInitCode, 'InitProtection')
     }
     if (initOk) {
       const wcdbInit = lib.func('int32 wcdb_init()') as KoffiAsyncFunction
@@ -569,9 +652,6 @@ export class Wcdb4Client {
   private wcdbMsgInsertGetSwitches:
     | ((handle: number, dbPath: string, outJson: WcdbVoidOut) => number)
     | null = null
-  private wcdbMsgInsertListShardCatalog:
-    | ((handle: number, outJson: WcdbVoidOut) => number)
-    | null = null
   private wcdbGetGroupNicknames:
     | ((handle: number, chatroomId: string, outJson: WcdbVoidOut) => number)
     | null = null
@@ -782,12 +862,16 @@ export class Wcdb4Client {
     openResult = this.wcdbOpenAccount(this.sessionDbPath, this.key, handleOut)
 
     if (openResult !== 0 || handleOut[0] <= 0) {
-      const hint =
-        openResult === -1005
-          ? '；这通常表示密钥与当前账号数据库不匹配，请确认微信已登录目标账号，并重新自动获取密钥'
-          : ''
-      throw new Error(
-        `wcdb_open_account 失败，错误码: ${openResult}${hint}; sessionDb=${this.sessionDbPath}; accountRoot=${this.accountRoot}; wxid=${this.wxid}; keyLength=${this.key.length}`
+      // message 只放分类文案；路径与 wxid 不进 message，原生码在 nativeCode 字段上。
+      if (isWcdbDebugEnabled()) {
+        console.warn(
+          `[WCDB4] wcdb_open_account rc=${openResult}; sessionDb=${this.sessionDbPath}; accountRoot=${this.accountRoot}; wxid=${this.wxid}; keyLength=${this.key.length}`
+        )
+      }
+      throw new NativeDbInitError(
+        describeDbOpenFailure(openResult, this.sessionDbPath),
+        openResult,
+        'wcdb_open_account'
       )
     }
 
@@ -815,8 +899,15 @@ export class Wcdb4Client {
       handleOut
     )
     if (openResult !== 0 || handleOut[0] <= 0) {
-      throw new Error(
-        `wcdb_open_account failed, code=${openResult}; sessionDb=${this.sessionDbPath}; accountRoot=${this.accountRoot}; wxid=${this.wxid}; keyLength=${this.key.length}`
+      if (isWcdbDebugEnabled()) {
+        console.warn(
+          `[WCDB4] wcdb_open_account(async) rc=${openResult}; sessionDb=${this.sessionDbPath}; accountRoot=${this.accountRoot}; wxid=${this.wxid}; keyLength=${this.key.length}`
+        )
+      }
+      throw new NativeDbInitError(
+        describeDbOpenFailure(openResult, this.sessionDbPath),
+        openResult,
+        'wcdb_open_account_async'
       )
     }
     this.handle = handleOut[0]
@@ -923,7 +1014,11 @@ export class Wcdb4Client {
       )
       if (startResult !== 0) {
         this.monitorCallback = null
-        console.warn(`[WCDB4] wcdb_start_monitor_pipe 失败，错误码: ${startResult}`)
+        console.warn(
+          isWcdbDebugEnabled()
+            ? `[WCDB4] wcdb_start_monitor_pipe rc=${startResult}`
+            : '[WCDB4] 消息监听启动失败，将退回轮询'
+        )
         return false
       }
       this.monitorStarted = true
@@ -938,7 +1033,11 @@ export class Wcdb4Client {
         outName
       )
       if (nameResult !== 0 || !outName[0]) {
-        console.warn(`[WCDB4] wcdb_get_monitor_pipe_name 失败，错误码: ${nameResult}`)
+        console.warn(
+          isWcdbDebugEnabled()
+            ? `[WCDB4] wcdb_get_monitor_pipe_name rc=${nameResult}`
+            : '[WCDB4] 消息监听通道不可用，将退回轮询'
+        )
         this.stopMonitor()
         return false
       }
@@ -1358,7 +1457,14 @@ export class Wcdb4Client {
       `[${requestId}] WCDB message source decision cursorSatisfiesLimit=${cursorSatisfiesLimit} tableScanExecuted=${tableScanExecuted} cursorRows=${cursorMessages.length} tableRows=${tableMessages.length}`
     )
     const mergeStartedAt = Date.now()
-    const messages = this.mergeMessageRows(cursorMessages, tableMessages, maxRows)
+    const recoveredMessages = this.recallJournalEnabled
+      ? await this.readRecallJournalAsync(username, startTime, endTime)
+      : []
+    const messages = this.mergeMessageRows(
+      this.mergeMessageRows(cursorMessages, tableMessages),
+      recoveredMessages,
+      maxRows
+    )
     wcdbDebugLog(
       `[${requestId}] WCDB mergeMessageRows cost=${Date.now() - mergeStartedAt}ms finalRows=${messages.length}`
     )
@@ -1807,14 +1913,14 @@ export class Wcdb4Client {
     limit?: number,
     requestId = 'NO-REQUEST'
   ): Promise<Wcdb4Message[]> {
-    if (!this.wcdbExecQuery) return []
+    if (!this.wcdbExecQuery) throw new Error('当前 WCDB 数据服务不支持消息分片查询')
 
     const startedAt = Date.now()
     wcdbDebugLog(`[${requestId}] WCDB table scan start username=${username}`)
     let tables: Wcdb4MessageStore[] = []
     try {
       const statsStartedAt = Date.now()
-      tables = await this.listMessageStoresAsync(username)
+      tables = await this.listMessageStoresAsync(username, true)
       wcdbDebugLog(
         `[${requestId}] WCDB get_message_table_stats end stores=${tables.length} cost=${Date.now() - statsStartedAt}ms`
       )
@@ -1836,32 +1942,37 @@ export class Wcdb4Client {
     const order = limit ? 'DESC' : 'ASC'
 
     const allRows: Record<string, unknown>[] = []
-    let successfulTables = 0
     for (const table of tables) {
+      let offset = 0
       try {
-        const sql = `${this.messageTableSelect(table)}${whereSql} ORDER BY "create_time" ${order} LIMIT ${rowLimit}`
-        const queryStartedAt = Date.now()
-        const rows = await this.callJsonAsync<Record<string, unknown>[]>(
-          this.wcdbExecQuery as unknown as KoffiAsyncFunction,
-          'message',
-          table.dbPath,
-          sql
-        )
-        wcdbDebugLog(
-          `[${requestId}] WCDB exec_query table=${table.tableName} db=${table.dbPath} rows=${Array.isArray(rows) ? rows.length : 0} cost=${Date.now() - queryStartedAt}ms`
-        )
-        successfulTables += 1
-        if (Array.isArray(rows)) allRows.push(...rows)
+        while (true) {
+          // An omitted limit means the complete range, not the first 5,000 rows.
+          // Stable ordering also keeps equal-timestamp messages across pages.
+          const sql = `${this.messageTableSelect(table)}${whereSql} ORDER BY "create_time" ${order}, "local_id" ${order} LIMIT ${rowLimit} OFFSET ${offset}`
+          const queryStartedAt = Date.now()
+          const rows = await this.callJsonAsync<Record<string, unknown>[]>(
+            this.wcdbExecQuery as unknown as KoffiAsyncFunction,
+            'message',
+            table.dbPath,
+            sql
+          )
+          if (!Array.isArray(rows)) throw new Error('消息分片返回格式无效')
+          wcdbDebugLog(
+            `[${requestId}] WCDB exec_query table=${table.tableName} db=${table.dbPath} rows=${rows.length} offset=${offset} cost=${Date.now() - queryStartedAt}ms`
+          )
+          allRows.push(...rows)
+          if (limit || rows.length < rowLimit) break
+          offset += rowLimit
+        }
       } catch (error) {
         console.warn(
           `[WCDB4] async message table scan failed username=${username} db=${table.dbPath} table=${table.tableName}:`,
           error
         )
+        // A partial history must not look like a successful complete range: callers
+        // may persist a cursor after this request and permanently skip unread rows.
+        throw new Error('历史消息分片读取失败，请检查数据目录或微信数据版本')
       }
-    }
-
-    if (tables.length > 0 && successfulTables === 0) {
-      throw new Error('历史消息分片均读取失败，请检查数据目录或微信数据版本')
     }
 
     const result = this.finalizeMessages(username, allRows, startTime, endTime, limit)
@@ -1938,7 +2049,7 @@ export class Wcdb4Client {
   /**
    * 读取「微信消息插入规则」的分片目录（只读）。
    *
-   * 每个分片只跑两条查询（表清单 + 规则清单），拿回来之后调用方可以在本地用
+   * 每个分片只跑一条 sqlite_master 查询，拿回来之后调用方可以在本地用
    * md5(roomId) 匹配出「每个会话落在哪些分片、规则齐不齐」。这样即使会话很多，
    * 判断全部会话的状态也只是一次目录读取，不需要按会话逐个查库。
    */
@@ -1950,29 +2061,40 @@ export class Wcdb4Client {
         shard: string
         dbPath: string
         configTable: boolean
-        storeTables: { capture: boolean; names: boolean; queue: boolean }
         tables: string[]
         rules: Array<{ name: string; table: string }>
       }>
     }
     error?: string
   } {
-    if (!this.wcdbMsgInsertListShardCatalog) {
+    if (!this.wcdbExecQuery) {
       return { success: false, error: '当前 WCDB 服务不支持消息插入规则目录' }
     }
     try {
-      const catalog = this.callJson<{
-        shardCount: number
-        shards: Array<{
-          shard: string
-          dbPath: string
-          configTable: boolean
-          storeTables: { capture: boolean; names: boolean; queue: boolean }
-          tables: string[]
-          rules: Array<{ name: string; table: string }>
-        }>
-      }>((handle, outJson) => this.wcdbMsgInsertListShardCatalog!(handle, outJson))
-      return { success: true, catalog }
+      // 专用 native 目录接口在部分 Windows 数据库上会终止进程，改走已有的只读 SQL 通道。
+      const shards = this.listMessageShardPaths().map((dbPath) => {
+        const rows = this.callJson<{ name: string; type: string; tbl_name: string }[]>(
+          (handle, outJson) =>
+            this.wcdbExecQuery!(
+              handle,
+              'message',
+              dbPath,
+              "SELECT name, type, tbl_name FROM sqlite_master WHERE type IN ('table', 'trigger')",
+              outJson
+            )
+        )
+        const tables = rows.filter((row) => row.type === 'table').map((row) => row.name)
+        return {
+          shard: path.basename(dbPath),
+          dbPath,
+          configTable: tables.includes('_tm_config'),
+          tables,
+          rules: rows
+            .filter((row) => row.type === 'trigger')
+            .map((row) => ({ name: row.name, table: row.tbl_name }))
+        }
+      })
+      return { success: true, catalog: { shardCount: shards.length, shards } }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
@@ -2034,7 +2156,10 @@ export class Wcdb4Client {
     return stores.length > 0 ? stores : this.listFallbackMessageStores(username)
   }
 
-  private async listMessageStoresAsync(username: string): Promise<Wcdb4MessageStore[]> {
+  private async listMessageStoresAsync(
+    username: string,
+    strict = false
+  ): Promise<Wcdb4MessageStore[]> {
     let stores: Wcdb4MessageStore[] = []
     if (this.wcdbGetMessageTableStats) {
       try {
@@ -2042,12 +2167,13 @@ export class Wcdb4Client {
           this.wcdbGetMessageTableStats as unknown as KoffiAsyncFunction,
           username
         )
+        if (strict && !Array.isArray(rows)) throw new Error('消息分片目录返回格式无效')
         stores = this.parseMessageStores(rows)
       } catch (error) {
         if (!username.startsWith('gh_')) throw error
       }
     }
-    return stores.length > 0 ? stores : this.listFallbackMessageStoresAsync(username)
+    return stores.length > 0 ? stores : this.listFallbackMessageStoresAsync(username, strict)
   }
 
   private parseMessageStores(rows: Record<string, unknown>[]): Wcdb4MessageStore[] {
@@ -2059,7 +2185,7 @@ export class Wcdb4Client {
       .filter((row) => row.tableName && row.dbPath)
   }
 
-  private getMessageDatabasePaths(username: string): string[] {
+  private getMessageDatabasePaths(username: string, strict = false): string[] {
     // Native shard discovery can return no stores on Windows even when SQL reads work.
     // Enumerate only canonical databases; sync-conflict copies are not message shards.
     const messageRoot = path.join(this.dbStoragePath, 'message')
@@ -2072,7 +2198,8 @@ export class Wcdb4Client {
         .filter((name) => pattern.test(name))
         .sort()
         .map((name) => path.join(messageRoot, name))
-    } catch {
+    } catch (error) {
+      if (strict) throw error
       return []
     }
   }
@@ -2108,12 +2235,18 @@ export class Wcdb4Client {
     return stores
   }
 
-  private async listFallbackMessageStoresAsync(username: string): Promise<Wcdb4MessageStore[]> {
-    if (!this.wcdbExecQuery) return []
+  private async listFallbackMessageStoresAsync(
+    username: string,
+    strict = false
+  ): Promise<Wcdb4MessageStore[]> {
+    if (!this.wcdbExecQuery) {
+      if (strict) throw new Error('当前 WCDB 数据服务不支持消息分片查询')
+      return []
+    }
     const tableName = `Msg_${this.md5(username)}`
     const escapedTableName = tableName.replace(/'/g, "''")
     const stores: Wcdb4MessageStore[] = []
-    for (const dbPath of this.getMessageDatabasePaths(username)) {
+    for (const dbPath of this.getMessageDatabasePaths(username, strict)) {
       try {
         const rows = await this.callJsonAsync<Record<string, unknown>[]>(
           this.wcdbExecQuery as unknown as KoffiAsyncFunction,
@@ -2121,6 +2254,7 @@ export class Wcdb4Client {
           dbPath,
           `SELECT name FROM sqlite_master WHERE type='table' AND (name='${escapedTableName}' OR name LIKE 'Name2Id%') ORDER BY name DESC`
         )
+        if (strict && !Array.isArray(rows)) throw new Error('消息分片目录返回格式无效')
         if (Array.isArray(rows) && rows.some((row) => row.name === tableName)) {
           const senderTableName = rows.find((row) => /^Name2Id/i.test(String(row.name)))?.name
           stores.push({
@@ -2129,7 +2263,8 @@ export class Wcdb4Client {
             ...(senderTableName ? { senderTableName: String(senderTableName) } : {})
           })
         }
-      } catch {
+      } catch (error) {
+        if (strict) throw error
         // A shard may use a different key; continue checking the other databases.
       }
     }
@@ -2226,6 +2361,35 @@ export class Wcdb4Client {
         recoveredRows.push(...rows)
       } catch {
         // The journal is optional until installation has completed for this store.
+      }
+    }
+    return this.finalizeMessages(username, recoveredRows, startTime, endTime)
+  }
+
+  private async readRecallJournalAsync(
+    username: string,
+    startTime?: number,
+    endTime?: number
+  ): Promise<Wcdb4Message[]> {
+    const recoveredRows: Record<string, unknown>[] = []
+    for (const store of await this.listMessageStoresAsync(username)) {
+      try {
+        const begin = this.normalizeTimestamp(startTime || 0)
+        const end = this.normalizeTimestamp(endTime || 0)
+        const where = [
+          `"_wxe_source_table" = '${store.tableName.replace(/'/g, "''")}'`,
+          begin > 0 ? `"create_time" >= ${begin}` : '',
+          end > 0 ? `"create_time" <= ${end}` : ''
+        ].filter(Boolean)
+        const rows = await this.callJsonAsync<Record<string, unknown>[]>(
+          this.wcdbExecQuery as unknown as KoffiAsyncFunction,
+          'message',
+          store.dbPath,
+          `SELECT *, 1 AS "_wxe_recovered" FROM ${this.quoteSqlIdentifier(this.recallJournalTableName(store.tableName))} WHERE ${where.join(' AND ')} ORDER BY "create_time" ASC LIMIT 500`
+        )
+        if (Array.isArray(rows)) recoveredRows.push(...rows)
+      } catch {
+        // Like the sync path, the optional journal may not exist on every store.
       }
     }
     return this.finalizeMessages(username, recoveredRows, startTime, endTime)
@@ -2581,7 +2745,13 @@ export class Wcdb4Client {
     limit?: number,
     requestId = 'NO-REQUEST'
   ): Promise<Wcdb4Message[]> {
-    if (!this.wcdbOpenMessageCursor || !this.wcdbFetchMessageBatch) return []
+    if (
+      !this.wcdbOpenMessageCursor ||
+      !this.wcdbFetchMessageBatch ||
+      !this.wcdbCloseMessageCursor
+    ) {
+      throw new Error('当前 WCDB 数据服务不支持消息游标')
+    }
 
     const handle = this.ensureHandle()
     const batchSize = limit ? Math.min(500, limit) : 1000
@@ -2606,7 +2776,9 @@ export class Wcdb4Client {
     wcdbDebugLog(
       `[${requestId}] WCDB open_message_cursor end code=${openResult} cursor=${cursorOut[0]} cost=${Date.now() - openStartedAt}ms`
     )
-    if (openResult !== 0 || cursorOut[0] <= 0) return []
+    if (openResult !== 0 || cursorOut[0] <= 0) {
+      throw new Error(`无法打开消息游标：${openResult}`)
+    }
 
     const cursor = cursorOut[0]
     const allRows: Record<string, unknown>[] = []
@@ -2629,13 +2801,15 @@ export class Wcdb4Client {
           wcdbDebugLog(
             `[${requestId}] WCDB fetch_message_batch #${fetchIndex} code=${fetchResult} nativeCost=${fetchNativeCost}ms output=${Boolean(outJson[0])}`
           )
-          break
+          if (outJson[0]) this.wcdbFreeString?.(outJson[0])
+          throw new Error(`消息游标读取失败：${fetchResult}`)
         }
         try {
           const decodeStartedAt = Date.now()
           const json = this.koffi!.decode(outJson[0], 'char', -1)
           const batch = JSON.parse(json) as Record<string, unknown>[]
-          if (Array.isArray(batch)) allRows.push(...batch)
+          if (!Array.isArray(batch)) throw new Error('消息游标返回格式无效')
+          allRows.push(...batch)
           wcdbDebugLog(
             `[${requestId}] WCDB fetch_message_batch #${fetchIndex} code=${fetchResult} nativeCost=${fetchNativeCost}ms jsonCost=${Date.now() - decodeStartedAt}ms batchRows=${Array.isArray(batch) ? batch.length : 0} hasMore=${outHasMore[0]}`
           )
@@ -2647,7 +2821,11 @@ export class Wcdb4Client {
     } finally {
       const closeStartedAt = Date.now()
       try {
-        this.wcdbCloseMessageCursor?.(handle, cursor)
+        await this.callAsyncCode(
+          this.wcdbCloseMessageCursor as unknown as KoffiAsyncFunction,
+          handle,
+          cursor
+        )
       } catch {
         // Best-effort cursor cleanup.
       }
@@ -2923,7 +3101,7 @@ export class Wcdb4Client {
 
     const handle = this.ensureHandle()
     const fn = this.wcdbGetVoiceData as unknown as KoffiAsyncFunction
-    return this.createTrackedNativeCall<Wcdb4VoiceDataResult>((resolve, reject) => {
+    const result = await this.createTrackedNativeCall<Wcdb4VoiceDataResult>((resolve, reject) => {
       const outHex: WcdbVoidOut = [null]
       fn.async(
         handle,
@@ -2948,7 +3126,9 @@ export class Wcdb4Client {
             resolve(
               hex === null
                 ? { success: false, error: '解析语音数据失败' }
-                : { success: true, hex, error: '' }
+                : hex
+                  ? { success: true, hex, error: '' }
+                  : { success: false, error: '语音数据为空' }
             )
           } finally {
             this.wcdbFreeString?.(outHex[0])
@@ -2956,6 +3136,51 @@ export class Wcdb4Client {
         }
       )
     })
+    if (result.success) return result
+    return (
+      (await this.getVoiceDataFromMediaShards(sessionId, createTime, candidates, localId, svrId)) || result
+    )
+  }
+
+  private async getVoiceDataFromMediaShards(
+    sessionId: string,
+    createTime: number,
+    candidates: string[],
+    localId: number,
+    svrId: string | number
+  ): Promise<Wcdb4VoiceDataResult | null> {
+    if (!this.wcdbExecQuery || !sessionId) return null
+    const serverId = String(svrId || 0)
+    const identity = /^-?[1-9]\d*$/.test(serverId)
+      ? `v.svr_id = ${serverId}`
+      : Number.isSafeInteger(localId) &&
+          localId > 0 &&
+          Number.isSafeInteger(createTime) &&
+          createTime > 0
+        ? `v.local_id = ${localId} AND v.create_time = ${createTime}`
+        : ''
+    if (!identity) return null
+    const sessions = this.uniq([sessionId, ...candidates])
+      .map((name) => `'${name.replace(/'/g, "''")}'`)
+      .join(',')
+    const messageRoot = path.join(this.dbStoragePath, 'message')
+    if (!fs.existsSync(messageRoot)) return null
+    // 部分 native 版本漏读后续媒体分片；按完整消息身份查询，避免同秒语音串条。
+    const shards = fs.readdirSync(messageRoot).filter((file) => /^media_\d+\.db$/.test(file)).sort()
+    for (const name of shards) {
+      try {
+        const rows = await this.callJsonAsync<{ hex?: string }[]>(
+          this.wcdbExecQuery as unknown as KoffiAsyncFunction,
+          'message',
+          path.join(messageRoot, name),
+          `SELECT hex(v.voice_data) AS hex FROM VoiceInfo v JOIN Name2Id n ON n.rowid = v.chat_name_id WHERE n.user_name IN (${sessions}) AND ${identity} AND length(v.voice_data) > 0 LIMIT 1`
+        )
+        if (rows[0]?.hex) return { success: true, hex: rows[0].hex, error: '' }
+      } catch (error) {
+        console.warn(`[WCDB4] voice lookup failed in ${name}:`, error)
+      }
+    }
+    return null
   }
 
   async getVoiceDataBatch(requests: Wcdb4VoiceDataRequest[]): Promise<Wcdb4VoiceDataResult[]> {
@@ -3341,14 +3566,6 @@ export class Wcdb4Client {
     }
 
     try {
-      this.wcdbMsgInsertListShardCatalog = lib.func(
-        'int32 wcdb_msg_insert_list_shard_catalog(int64 handle, _Out_ void** outJson)'
-      ) as (handle: number, outJson: WcdbVoidOut) => number
-    } catch {
-      this.wcdbMsgInsertListShardCatalog = null
-    }
-
-    try {
       this.wcdbGetGroupNicknames = lib.func(
         'int32 wcdb_get_group_nicknames(int64 handle, const char* chatroomId, _Out_ void** outJson)'
       ) as (handle: number, chatroomId: string, outJson: WcdbVoidOut) => number
@@ -3485,16 +3702,14 @@ export class Wcdb4Client {
   }
 
   static resolveNativeLibrary(): string {
-    const libName =
-      process.platform === 'darwin'
-        ? 'libwcdb_api.dylib'
-        : process.platform === 'linux'
-          ? 'libwcdb_api.so'
-          : 'wcdb_api.dll'
+    if (process.platform === 'darwin') {
+      const library = resolveWcdbLibrary()
+      if (library) return library
+      throw new Error('找不到当前发行版对应的 WCDB native 库')
+    }
+    const libName = process.platform === 'linux' ? 'libwcdb_api.so' : 'wcdb_api.dll'
     const platformDir =
-      process.platform === 'darwin'
-        ? 'macos'
-        : process.platform === 'win32'
+      process.platform === 'win32'
           ? 'win32'
           : process.platform
     const archDir = process.arch === 'arm64' ? 'arm64' : 'x64'
@@ -3571,7 +3786,10 @@ export class Wcdb4Client {
     const outJson: WcdbVoidOut = [null]
     const result = call(handle, outJson)
     if (result !== 0 || !outJson[0]) {
-      throw new Error(`WCDB 调用失败，错误码: ${result}`)
+      if (isWcdbDebugEnabled()) {
+        console.warn(`[WCDB4] native query rc=${result} handle=${handle}`)
+      }
+      throw new NativeWcdbError(result)
     }
 
     try {
@@ -3593,7 +3811,10 @@ export class Wcdb4Client {
         }
         const code = Number(result)
         if (code !== 0 || !outJson[0]) {
-          reject(new Error(`WCDB async call failed, code: ${code}`))
+          if (isWcdbDebugEnabled()) {
+            console.warn(`[WCDB4] native query(async) rc=${code} handle=${handle}`)
+          }
+          reject(new NativeWcdbError(code))
           return
         }
         try {

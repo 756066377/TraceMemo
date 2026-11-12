@@ -1,7 +1,7 @@
 {
   "name": "tracememo",
   "productName": "NearCast",
-  "version": "2.5.2",
+  "version": "2.6.0",
   "packageManager": "pnpm@7.33.7",
   "description": "NearCast — 本地优先的微信数据与分析工作台",
   "keywords": [
@@ -67,11 +67,13 @@
     "build:win": "npm run typecheck && npm run prepare:win-runtime && npm run prepare:wechat-hook && electron-vite build && electron-builder --config electron-builder.win.yml --win --x64",
     "build:mac:arm64": "npm run typecheck && npm run prepare:ffmpeg:mac:arm64 && electron-vite build && electron-builder --config electron-builder.yml --mac --arm64",
     "build:mac:arm64:send-runtime": "npm run typecheck && npm run prepare:ffmpeg:mac:arm64 && electron-vite build && cross-env TM_SEND_RUNTIME_BUILD=1 electron-builder --config electron-builder.send-runtime.yml --mac --arm64",
+    "build:mac:public": "node scripts/build-macos-edition.cjs public",
+    "build:mac:native": "node scripts/build-macos-edition.cjs native",
     "build:mac:x64": "npm run typecheck && npm run prepare:ffmpeg:mac:x64 && electron-vite build && electron-builder --config electron-builder.yml --mac --x64",
     "release": "npm run release:mac && npm run release:win",
     "release:mac": "npm run typecheck && electron-vite build && npm run release:mac:arm64 && npm run release:mac:x64",
-    "release:mac:arm64": "npm run prepare:ffmpeg:mac:arm64 && electron-builder --config electron-builder.yml --mac --arm64 --publish always",
-    "release:mac:x64": "npm run prepare:ffmpeg:mac:x64 && electron-builder --config electron-builder.yml --mac --x64 --publish always",
+    "release:mac:arm64": "npm run prepare:ffmpeg:mac:arm64 && electron-builder --config electron-builder.yml --mac --arm64 --publish always --config.directories.output=dist/release/mac-arm64",
+    "release:mac:x64": "npm run prepare:ffmpeg:mac:x64 && electron-builder --config electron-builder.yml --mac --x64 --publish always --config.directories.output=dist/release/mac-x64",
     "release:win": "npm run typecheck && npm run prepare:win-runtime && npm run prepare:wechat-hook && electron-vite build && electron-builder --config electron-builder.win.yml --win --x64 --publish always",
     "release:beta": "cross-env EP_PRE_RELEASE=true npm run release",
     "release:stable": "npm run release",
@@ -163,7 +165,8 @@
     "typescript": "^5.9.3",
     "vite": "^7.2.6",
     "vitest": "^4.1.10",
-    "wrangler": "^4.28.1"
+    "wrangler": "^4.28.1",
+    "yaml": "^2.9.1"
   },
   "pnpm": {
     "supportedArchitectures": {

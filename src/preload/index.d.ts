@@ -91,6 +91,13 @@ import type {
   PersonalWechatVoiceDiagnostic
 } from '../shared/personal-wechat'
 import type { PersonalWechatSendCapability } from '../shared/personal-wechat'
+import type { MacLicenseStatus } from '../shared/personal-wechat-mac-license'
+import type {
+  MacWechatResidualCleanupResult,
+  MacWechatResidualProcess,
+  MacWechatRuntimeSnapshot,
+  MacWechatSendRuntimeAvailabilityResult
+} from '../shared/personal-wechat-mac-runtime'
 import type { GroupMemberStatsQuery, GroupMemberStatsResult } from '../shared/group-stats'
 import type {
   ScheduledReportExecution,
@@ -241,6 +248,8 @@ declare global {
       downloadAppUpdate: () => Promise<AppUpdateCheckResult>
       installAppUpdate: () => Promise<AppUpdateInstallResult>
       openAppUpdateDownloadPage: () => Promise<AppUpdateOpenDownloadPageResult>
+      getIgnoredUpdateVersion: () => Promise<string>
+      setIgnoredUpdateVersion: (version: string | null) => Promise<string>
       onAppUpdateState: (callback: (state: AppUpdateState) => void) => () => void
       getCacheSummary: () => Promise<CacheSummary>
       clearCache: (scope: CacheClearScope) => Promise<CacheSummary>
@@ -774,6 +783,14 @@ declare global {
       repairImageTextIndex: () => Promise<ImageTextIndexRepairResult>
       onImageTextIndexStatus: (callback: (status: ImageTextIndexStatus) => void) => () => void
       getPersonalWechatSenderStatus: () => Promise<PersonalWechatSenderStatus>
+      getMacLicenseStatus: () => Promise<MacLicenseStatus>
+      getMacSendRuntimeAvailability: () => Promise<MacWechatSendRuntimeAvailabilityResult>
+      startMacSendRuntime: () => Promise<MacWechatRuntimeSnapshot>
+      listMacWechatResidualProcesses: () => Promise<MacWechatResidualProcess[]>
+      cleanupMacWechatResidualProcesses: (
+        targets: Array<Pick<MacWechatResidualProcess, 'pid' | 'confirmationToken'>>
+      ) => Promise<MacWechatResidualCleanupResult>
+      refreshMacLicense: () => Promise<MacLicenseStatus>
       getPersonalWechatSendCapability: () => Promise<PersonalWechatSendCapability>
       checkPersonalWechatSenderStatus: (port?: string) => Promise<PersonalWechatSenderStatus>
       scanPersonalWechatEndpoint: () => Promise<PersonalWechatEndpointScanResult>

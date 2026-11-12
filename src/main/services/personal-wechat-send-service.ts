@@ -12,7 +12,7 @@ import {
 } from 'fs'
 import { homedir, tmpdir } from 'os'
 import { delimiter, dirname, extname, join, sep } from 'path'
-import ffmpegStaticPath from 'ffmpeg-static'
+import { resolveBundledFfmpegPath } from '../ffmpeg-path'
 import { promisify } from 'util'
 import type {
   PersonalWechatEndpointCandidate,
@@ -26,7 +26,7 @@ import type {
 import { loadSettings } from './settings-store'
 import { SilkAudioDecoder, SilkAudioEncoder } from '../voice-pipeline/audio-decoder'
 import { appLogger } from '../app-logger'
-import { readLocalAccountIdentity } from './local-account-identity'
+import { accountDirectoryBelongsToIdentity, readLocalAccountIdentity } from './local-account-identity'
 import { macWechatRuntimeManager } from './mac-wechat-runtime-manager'
 import {
   HOOK_PROTOCOL_LABELS,
@@ -85,9 +85,7 @@ function windowsHookHost(port?: unknown): string | null {
 
 export function buildPersonalWechatRuntimePath(): string {
   const existing = String(process.env['PATH'] || '')
-  const bundledFfmpeg = String(ffmpegStaticPath || '')
-    .replace('app.asar', 'app.asar.unpacked')
-    .trim()
+  const bundledFfmpeg = resolveBundledFfmpegPath()
   if (!bundledFfmpeg || !existsSync(bundledFfmpeg)) return existing
   return [dirname(bundledFfmpeg), existing].filter(Boolean).join(delimiter)
 }
@@ -195,7 +193,7 @@ async function detectVoiceDurationMs(filePath: string): Promise<number | undefin
     }
   }
 
-  const ffmpegPath = String(ffmpegStaticPath || '').replace('app.asar', 'app.asar.unpacked')
+  const ffmpegPath = resolveBundledFfmpegPath()
   if (!ffmpegPath || !existsSync(ffmpegPath)) return undefined
   let output = ''
   try {
@@ -224,7 +222,7 @@ async function prepareWindowsVoiceFile(filePath: string): Promise<{
     return { filePath, durationMs: await detectVoiceDurationMs(filePath), temporary: false }
   }
 
-  const ffmpegPath = String(ffmpegStaticPath || '').replace('app.asar', 'app.asar.unpacked')
+  const ffmpegPath = resolveBundledFfmpegPath()
   if (!ffmpegPath || !existsSync(ffmpegPath)) {
     throw new Error('Windows 语音发送需要可用的 FFmpeg 才能转换为 SILK')
   }
@@ -315,14 +313,18 @@ export function prepareWindowsImageFile(
   return { filePath: temporaryPath, temporary: true }
 }
 
-function prepareMacWechatImageFile(filePath: string): { filePath: string; md5: string } {
+function prepareMacWechatImageFile(
+  filePath: string,
+  senderWxid: string,
+  wechatFilesRoot = WECHAT_FILES_ROOT
+): { filePath: string; md5: string } {
   /* Stage the image in WeChat's temporary image directory using the
    * filename/hash layout required by the macOS native send path:
    * - stage inside the active account's ImageTemp tree selected by
    *   findWechatImagePath(), not an arbitrary readable sandbox directory;
    * - append a per-send salt before calculating MD5, so the staged image and
    *   the MD5 passed to the CDN task describe the same unique byte stream. */
-  const temporaryRoot = findWechatImagePath()
+  const temporaryRoot = findWechatImagePath(wechatFilesRoot, new Date(), senderWxid)
   if (!temporaryRoot) throw new Error('无法定位当前微信账号的图片临时目录')
   mkdirSync(temporaryRoot, { recursive: true })
   const extension = extname(filePath).toLowerCase()
@@ -344,16 +346,36 @@ function prepareMacWechatImageFile(filePath: string): { filePath: string; md5: s
   }
 }
 
+function stageMacWechatImageForMessageSourceSend(
+  filePath: string,
+  senderWxid: string,
+  wechatFilesRoot = WECHAT_FILES_ROOT
+): string {
+  const temporaryRoot = findWechatImagePath(wechatFilesRoot, new Date(), senderWxid)
+  if (!temporaryRoot) throw new Error('无法定位当前微信账号的图片临时目录')
+  mkdirSync(temporaryRoot, { recursive: true })
+  const extension = extname(filePath).toLowerCase()
+  const safeExtension = /^\.[a-z0-9]{1,8}$/.test(extension) ? extension : '.png'
+  const stagedPath = join(
+    temporaryRoot,
+    `tm-${randomBytes(8).toString('hex')}-${Math.floor(Date.now() / 1000)}${safeExtension}`
+  )
+  copyFileSync(filePath, stagedPath)
+  return stagedPath
+}
+
 /** Locate the current account's temporary image directory consumed by the image send path. */
 export function findWechatImagePath(
   root = WECHAT_FILES_ROOT,
-  now = new Date()
+  now = new Date(),
+  senderWxid?: string
 ): string | undefined {
   try {
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     const candidates: Array<{ path: string; mtime: number }> = []
     const fallbacks: Array<{ path: string; mtime: number }> = []
     for (const account of readdirSync(root)) {
+      if (senderWxid && !accountDirectoryBelongsToIdentity(account, senderWxid)) continue
       const tempRoot = join(root, account, 'temp')
       if (!existsSync(tempRoot)) continue
       fallbacks.push({
@@ -506,6 +528,10 @@ function safeFileSize(target: string): number {
   } catch {
     return -1
   }
+}
+
+function isDefinitiveImageSourcePreparationFailure(message: string): boolean {
+  return message.trim() === 'IMAGE_PREPARATION_FAILED:0'
 }
 
 /**
@@ -803,6 +829,8 @@ export class PersonalWechatSendService {
   private readonly sendQueues = new Map<string, Promise<unknown>>()
   private lastWechat4Submission = 0
 
+  constructor(private readonly wechatFilesRoot = WECHAT_FILES_ROOT) {}
+
   async getStatus(): Promise<PersonalWechatSenderStatus> {
     // macOS 发送能力完全由 native runtime（tm-wechat-host）提供，
     // 这里保持同源，避免出现第二套状态判断。
@@ -1008,6 +1036,32 @@ export class PersonalWechatSendService {
         error: initialStatus.message || '微信发送能力未就绪'
       }
     }
+    const sendMechanism = await macWechatRuntimeManager.getSendMechanism()
+    if (request.at && sendMechanism !== 'tm-message-source-send') {
+      return {
+        success: false,
+        status: initialStatus,
+        error: '当前微信发送组件不支持原生群聊 @，请升级微信与发送组件'
+      }
+    }
+    if (sendMechanism === 'tm-message-source-send') {
+      const result = await this.postMacHost(
+        '/sendMsg',
+        {
+          type: 'text',
+          to: request.to,
+          text: request.text,
+          is_group: Boolean(request.isGroup),
+          ...(request.at ? { at: request.at } : {})
+        },
+        50_000
+      )
+      const status = await macWechatRuntimeManager.buildSenderStatus()
+      if (!result?.ok) {
+        return { success: false, status, error: result?.message || '文字发送失败' }
+      }
+      return { success: true, status }
+    }
 
     const payload = JSON.stringify({
       to: request.to,
@@ -1045,7 +1099,7 @@ export class PersonalWechatSendService {
    * the on-disk account identity instead.
    */
   private async resolveMacSenderWxid(): Promise<string> {
-    const identity = readLocalAccountIdentity(WECHAT_FILES_ROOT)
+    const identity = readLocalAccountIdentity(this.wechatFilesRoot)
     return identity?.wxid ?? ''
   }
 
@@ -1082,13 +1136,42 @@ export class PersonalWechatSendService {
     }
     const filePath = String(request.filePath || '').trim()
     if (!filePath || !existsSync(filePath)) return fail('请选择有效的图片文件')
-
+    const sendMechanism = await macWechatRuntimeManager.getSendMechanism()
     const sender = await this.resolveMacSenderWxid()
     if (!sender) return fail('无法识别当前微信账号 wxid')
+    if (sendMechanism === 'tm-message-source-send') {
+      let stagedPath = ''
+      let sourceError = ''
+      try {
+        stagedPath = stageMacWechatImageForMessageSourceSend(filePath, sender, this.wechatFilesRoot)
+        const sent = await this.postMacHost(
+          '/sendMsg',
+          { type: 'image', to: request.to, path: stagedPath },
+          55_000
+        )
+        const status = await macWechatRuntimeManager.buildSenderStatus()
+        if (!sent?.ok) {
+          sourceError = sent?.message || '图片发送失败'
+        } else {
+          return { success: true, status }
+        }
+      } catch (error) {
+        sourceError = error instanceof Error ? error.message : String(error)
+      } finally {
+        if (stagedPath) {
+          try {
+            unlinkSync(stagedPath)
+          } catch {
+            // Best-effort cleanup after WeChat has consumed the staged image.
+          }
+        }
+      }
+      if (!isDefinitiveImageSourcePreparationFailure(sourceError)) return fail(sourceError)
+    }
 
     let uploadPath = ''
     try {
-      const prepared = prepareMacWechatImageFile(filePath)
+      const prepared = prepareMacWechatImageFile(filePath, sender, this.wechatFilesRoot)
       uploadPath = prepared.filePath
       const upload = await this.postMacHost(
         '/uploadImage',
@@ -1136,9 +1219,12 @@ export class PersonalWechatSendService {
     }
     const filePath = String(request.filePath || '').trim()
     if (!filePath || !existsSync(filePath)) return fail('请选择有效的语音文件')
-
-    const sender = await this.resolveMacSenderWxid()
-    if (!sender) return fail('无法识别当前微信账号 wxid')
+    const sendMechanism = await macWechatRuntimeManager.getSendMechanism()
+    let sender = ''
+    if (sendMechanism !== 'tm-message-source-send') {
+      sender = await this.resolveMacSenderWxid()
+      if (!sender) return fail('无法识别当前微信账号 wxid')
+    }
 
     /* Reuse the Windows SILK preparation: it already normalizes any input to
      * SILK and reports the duration. */
@@ -1161,6 +1247,25 @@ export class PersonalWechatSendService {
         normalized_input_bytes: silkData.length,
         silk_duration_ms: durationMs
       })
+      if (sendMechanism === 'tm-message-source-send') {
+        if (durationMs < 1000) return fail('原生语音发送要求时长至少 1 秒', 'duration')
+        const sent = await this.postMacHost(
+          '/sendMsg',
+          {
+            type: 'voice',
+            to: request.to,
+            voice_hex: silkData.toString('hex'),
+            duration_ms: durationMs
+          },
+          55_000
+        )
+        if (!sent?.ok) {
+          return fail(sent?.message || '语音发送失败', 'send')
+        }
+        const status = await macWechatRuntimeManager.buildSenderStatus()
+        logVoiceAttempt(requestId, 'completed', { send_result: '0' })
+        return { success: true, status }
+      }
 
       const upload = await this.postMacHost(
         '/uploadVoice',

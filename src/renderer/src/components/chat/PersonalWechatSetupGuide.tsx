@@ -6,9 +6,13 @@ interface PersonalWechatSetupGuideProps {
   binding: boolean
   detecting: boolean
   sessionBound: boolean
-  onBind: () => void
-  onStartSending: () => void
+  onBind?: () => void
+  onStartSending?: () => void
   onOpenTextToSpeechSettings?: () => void
+  /** 是否渲染「绑定个人微信」步骤；不需要绑定时（例如已完成绑定）传 false。 */
+  showBindAction?: boolean
+  /** 初始化步骤里补充绑定说明（4.1.13 前后的差异）。 */
+  showBindingInstructionsInInitialization?: boolean
 }
 
 function capabilityLabel(ready: boolean, initializing: boolean): string {
@@ -46,9 +50,13 @@ export function PersonalWechatSetupGuide({
   sessionBound,
   onBind,
   onStartSending,
-  onOpenTextToSpeechSettings
+  onOpenTextToSpeechSettings,
+  showBindAction = true,
+  showBindingInstructionsInInitialization = false
 }: PersonalWechatSetupGuideProps): React.ReactElement {
   const runtimeUnavailable = senderStatus?.state === 'runtime_missing'
+  // 运行时已启动但退出：显示真实原因，别一直停在「正在检查」。
+  const runtimeError = senderStatus?.state === 'error' && senderStatus.runtimeReady !== true
   const runtimeLabel = '发送运行时'
   const runtimeReady = senderStatus?.runtimeReady === true
   const connected = sessionBound && (senderStatus ? isWechatBound(senderStatus) : false)
@@ -83,65 +91,84 @@ export function PersonalWechatSetupGuide({
               <span className="personal-wechat-step-error">
                 发送运行时未就绪，请检查安装包或重新检测
               </span>
+            ) : runtimeError ? (
+              <span className="personal-wechat-step-error" role="alert">
+                {senderStatus?.message || '发送运行时启动失败，请重新启动发送组件。'}
+              </span>
             ) : (
               <span className="personal-wechat-step-status">正在检查 {runtimeLabel}…</span>
             )}
           </div>
         </li>
 
-        <li
-          className={
-            connected
-              ? 'is-complete'
-              : binding
-                ? 'is-active'
-                : runtimeReady
-                  ? 'is-current'
-                  : 'is-pending'
-          }
-        >
-          <span className="personal-wechat-step-number">{connected ? '✓' : '2'}</span>
-          <div className="personal-wechat-step-content">
-            <strong>绑定个人微信</strong>
-            <p>请保持微信未登录窗口状态，点击“绑定微信”后，再点击微信窗口登录。</p>
-            {connected ? (
-              <span className="personal-wechat-step-status">✓ 微信已绑定</span>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onBind}
-                disabled={runtimeUnavailable || !runtimeReady || binding}
-              >
-                {binding ? '正在绑定…' : '绑定微信'}
-              </Button>
-            )}
-            {!connected && senderStatus && !runtimeUnavailable && (
-              <p className="personal-wechat-step-hint">{bindingHint(senderStatus)}</p>
-            )}
-            {!connected && !runtimeUnavailable && (
-              <p className="personal-wechat-step-warning" role="note">
-                绑定微信可能导致当前微信异常闪退，这是正常现象。若微信退出，请重新启动微信后，再回到这里重新检测/绑定。
-                <br />
-                微信总是自动更新？请在微信左下角打开“设置 →
-                通用”，取消勾选“有更新时自动升级微信”，否则版本变化后可能无法绑定。
-              </p>
-            )}
-          </div>
-        </li>
+        {showBindAction ? (
+          <li
+            className={
+              connected
+                ? 'is-complete'
+                : binding
+                  ? 'is-active'
+                  : runtimeReady
+                    ? 'is-current'
+                    : 'is-pending'
+            }
+          >
+            <span className="personal-wechat-step-number">{connected ? '✓' : '2'}</span>
+            <div className="personal-wechat-step-content">
+              <strong>绑定个人微信</strong>
+              <p>请保持微信未登录窗口状态，点击“绑定微信”后，再点击微信窗口登录。</p>
+              {connected ? (
+                <span className="personal-wechat-step-status">✓ 微信已绑定</span>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onBind}
+                  disabled={runtimeUnavailable || !runtimeReady || binding}
+                >
+                  {binding ? '正在绑定…' : '绑定微信'}
+                </Button>
+              )}
+              {!connected && senderStatus && !runtimeUnavailable && (
+                <p className="personal-wechat-step-hint">{bindingHint(senderStatus)}</p>
+              )}
+              {!connected && !runtimeUnavailable && (
+                <p className="personal-wechat-step-warning" role="note">
+                  绑定微信可能导致当前微信异常闪退，这是正常现象。若微信退出，请重新启动微信后，再回到这里重新检测/绑定。
+                  <br />
+                  微信总是自动更新？请在微信左下角打开“设置 →
+                  通用”，取消勾选“有更新时自动升级微信”，否则版本变化后可能无法绑定。
+                </p>
+              )}
+            </div>
+          </li>
+        ) : null}
 
         <li className={allReady ? 'is-complete' : connected ? 'is-current' : 'is-pending'}>
-          <span className="personal-wechat-step-number">{allReady ? '✓' : '3'}</span>
+          <span className="personal-wechat-step-number">
+            {allReady ? '✓' : showBindAction ? '3' : '2'}
+          </span>
           <div className="personal-wechat-step-content">
             <strong>初始化发送能力</strong>
             <p>绑定微信后，NearCast 会自动完成文字、图片和语音发送所需的初始化。</p>
+            <p>每个微信进程只能绑定一次</p>
+            {showBindingInstructionsInInitialization && (
+              <>
+                <p>4.1.13以下请保持微信未登录窗口状态，点击“绑定微信”后，再点击微信窗口登录。</p>
+                <p>4.1.13以上登录状态微信直接点击“绑定微信”</p>
+              </>
+            )}
             {initializing && (
               <p className="personal-wechat-step-hint" role="status">
-                {detecting ? '正在初始化发送能力…' : '正在等待发送运行时完成初始化…'}
+                {detecting
+                  ? '正在初始化发送能力…'
+                  : runtimeReady
+                    ? '微信已绑定，正在等待发送能力完成初始化…'
+                    : '正在等待发送运行时完成初始化…'}
               </p>
             )}
-            {senderStatus?.state === 'error' && (
-              <p className="personal-wechat-step-hint" role="status">
+            {senderStatus?.state === 'error' && !runtimeError && (
+              <p className="personal-wechat-step-hint" role="alert">
                 {senderStatus.message || '发送能力初始化失败，请重新绑定。'}
               </p>
             )}
@@ -168,9 +195,11 @@ export function PersonalWechatSetupGuide({
             {allReady ? (
               <>
                 <span className="personal-wechat-step-status">微信消息发送已配置完成</span>
-                <Button size="sm" onClick={onStartSending}>
-                  开始发送
-                </Button>
+                {onStartSending ? (
+                  <Button size="sm" onClick={onStartSending}>
+                    开始发送
+                  </Button>
+                ) : null}
               </>
             ) : initializing ? (
               <p className="personal-wechat-step-hint" role="status">
