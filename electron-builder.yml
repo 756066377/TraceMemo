@@ -1,5 +1,5 @@
 appId: com.tracememo.app
-productName: TraceMemo
+productName: NearCast
 afterPack: scripts/after-pack.cjs
 directories:
   buildResources: build
@@ -43,7 +43,7 @@ extraResources:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: NearCast-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
@@ -54,14 +54,14 @@ mac:
     - zip
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    CFBundleDisplayName: TraceMemo
+    CFBundleDisplayName: NearCast
     NSCameraUsageDescription: Application requests access to the device's camera.
     NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
 dmg:
-  artifactName: ${name}-${version}-${arch}.${ext}
+  artifactName: NearCast-${version}-${arch}.${ext}
 linux:
   icon: icon.png
   target:
@@ -71,7 +71,7 @@ linux:
   maintainer: electronjs.org
   category: Utility
 appImage:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: NearCast-${version}.${ext}
 npmRebuild: false
 publish:
   provider: github

@@ -27,5 +27,16 @@ findings.md
 progress.md
 task_plan.md
 
+# 外部移植源快照；Windows 实现已落入 src/，源仓库不进入 TraceMemo 构建、lint 或提交。
+/goutoujunshi-jev-chat/
+
 *tm-wcdb-config-helper*
 debug-originals
+
+# WeChat-Hook 的 DLL 是第三方二进制，不提交；manifest.json 里的目录契约要提交。
+/resources/wechat-hook/*.dll
+/resources/wechat-hook/*.exe
+/resources/wechat-hook/*.dll.tracememo-bak
+
+# 本机编译的 hook 产物，不入库。
+/build/wechat-hook/

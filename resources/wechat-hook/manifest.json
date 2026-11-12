@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "components": [
+    {
+      "file": "version-4.1.15.56.dll",
+      "wechatVersions": [
+        "4.1.15.56"
+      ],
+      "sha256": "53e99ddc992036198d7ce3cdce7e07a1038e481d7a3a7477439390e5fb58b34f",
+      "source": "本地 WeChat-Hook 4.1.15.56，保留登录检测；原生回调崩溃修复验证前暂停发送",
+      "loader": {
+        "file": "wxinject.exe",
+        "sha256": "07f4eda7ad1644f6aae25fdab5abcd633b89bfeaa806740a988228b50464966d"
+      }
+    },
+    {
+      "file": "version-4.1.10.27.dll",
+      "wechatVersions": [
+        "4.1.10.27"
+      ],
+      "sha256": "23948e7d933ff40735ddc0cc516641fd9f935d67ffdec476bb8db61b79940f29",
+      "source": "https://github.com/aixed/WeChat-Hook/releases/download/v411027_/version.dll"
+    }
+  ]
+}

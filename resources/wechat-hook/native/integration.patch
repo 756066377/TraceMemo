@@ -1,0 +1,74 @@
+diff --git a/src/QueryDB.cpp b/src/QueryDB.cpp
+index 41a14a7..24c20b5 100644
+--- a/src/QueryDB.cpp
++++ b/src/QueryDB.cpp
+@@ -6,6 +6,7 @@
+ #include "db_mgr.h"
+ 
+ #include "QueryDB.h"
++#include "login-status-route.h"
+ 
+ 
+ using json = nlohmann::json;
+@@ -126,12 +127,7 @@ void Route_QueryDB(httplib::Server& svr)
+         });
+ 
+     // 添加状态查询接口
+-    svr.Get("/QueryDB/status", [](const httplib::Request&, httplib::Response& res) {
+-        json resp;
+-        resp["IsLogin"] = g_IsLogin;
+-        resp["hWeixin"] = (uint64_t)g_hWeixinDll;
+-        res.set_content(resp.dump(4, ' ', false), "application/json");
+-        });
++    wechat_login::RegisterStatus(svr, reinterpret_cast<uintptr_t>(g_hWeixinDll));
+ 
+ 
+ }
+diff --git a/src/SendImageMsg.cpp b/src/SendImageMsg.cpp
+index 3e91bf1..466436f 100644
+--- a/src/SendImageMsg.cpp
++++ b/src/SendImageMsg.cpp
+@@ -3,6 +3,8 @@
+ #include <windows.h>
+ #include "wx_send.h"
+ #include "SendImageMsg.h"
++#include "global.h"
++#include "login-status-route.h"
+ 
+ using json = nlohmann::json;
+ 
+@@ -29,7 +31,9 @@ void Route_SendImageMsg(httplib::Server& svr)
+             std::string path = reqJson.value("path", "");
+ 
+             
+-            WeixinSend::SendImage(wxidorgid, path);
++            if (!wechat_login::RequireLoggedIn(res, reinterpret_cast<uintptr_t>(g_hWeixinDll)))
++                return;
++            WeixinSend::SendImage(wxidorgid, path);
+ 
+ 
+             resp["ret"] = 0;
+diff --git a/src/SendTextMsg.cpp b/src/SendTextMsg.cpp
+index cf0d3b0..223b56d 100644
+--- a/src/SendTextMsg.cpp
++++ b/src/SendTextMsg.cpp
+@@ -3,6 +3,8 @@
+ #include <windows.h>
+ #include "wx_send.h"
+ #include "SendTextMsg.h"
++#include "global.h"
++#include "login-status-route.h"
+ 
+ using json = nlohmann::json;
+ 
+@@ -28,7 +30,9 @@ void Route_SendTextMsg(httplib::Server& svr)
+             std::string wxidorgid = reqJson.value("wxidorgid", "");
+             std::string msg = reqJson.value("msg", "");
+ 
+-            WeixinSend::SendText(wxidorgid, msg);
++            if (!wechat_login::RequireLoggedIn(res, reinterpret_cast<uintptr_t>(g_hWeixinDll)))
++                return;
++            WeixinSend::SendText(wxidorgid, msg);
+ 
+ 
+             resp["ret"] = 0;
