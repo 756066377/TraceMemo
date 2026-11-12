@@ -44,6 +44,7 @@ export type WechatSendErrorCode =
 export interface WechatSendResult {
   request_id: string
   success: boolean
+  delivery_status?: 'accepted'
   status: WechatSendStatus
   transport: WechatSendTransport
   duration_ms: number
@@ -64,6 +65,7 @@ export interface WechatSendLogEntry {
   /** 对 msg 原文计算的 sha256。 */
   msg_hash?: string
   status: WechatSendStatus
+  delivery_status?: 'accepted'
   duration_ms?: number
   error_code?: WechatSendErrorCode
 }

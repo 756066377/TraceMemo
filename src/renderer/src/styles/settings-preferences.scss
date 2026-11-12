@@ -138,12 +138,12 @@
 }
 
 .voice-status-success {
-  color: var(--wxex-success, #2e8b68) !important;
+  color: var(--wxex-success, var(--wxex-brand)) !important;
 }
 
 .voice-status-error,
 .voice-model-error {
-  color: var(--wxex-danger, #c85a5a) !important;
+  color: var(--wxex-danger, var(--wxex-danger)) !important;
 }
 
 .voice-model-license {
@@ -633,11 +633,11 @@
   gap: 18px;
 
   &.status-error {
-    border-color: rgba(200, 90, 90, 0.42);
+    border-color: color-mix(in srgb, var(--wxex-danger) 42%, transparent);
   }
 
   &.status-downloaded {
-    border-color: rgba(46, 139, 104, 0.42);
+    border-color: color-mix(in srgb, var(--wxex-brand) 42%, transparent);
   }
 }
 

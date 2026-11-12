@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { useAppearanceTheme } from './hooks/useAppearanceTheme'
+import { ResponsivePanel } from './components/ui/responsive-panel'
 import { Sidebar } from './components/Sidebar'
 import ChatWindow from './components/ChatWindow'
 import { AppShell } from './components/layout/AppShell'
@@ -348,6 +350,7 @@ function App(): React.ReactElement {
     compactMode: boolean
     showStartupProgress: boolean
   }>({ theme: 'system', compactMode: false, showStartupProgress: true })
+  useAppearanceTheme(appearanceSettings.theme)
   const handleAppearanceChange = React.useCallback(
     (settings: { theme: 'system' | 'light' | 'dark'; compactMode: boolean }) => {
       setAppearanceSettings((current) => ({ ...current, ...settings }))
@@ -932,7 +935,7 @@ function App(): React.ReactElement {
         })
         setStartupProgress({
           title: '正在加载账号信息...',
-          subtitle: '即将进入 TraceMemo',
+          subtitle: '即将进入 NearCast',
           detail: '正在读取联系人和当前账号',
           percent: 70
         })
@@ -2031,7 +2034,9 @@ function App(): React.ReactElement {
               sendTarget={selectedReportContact}
               onOpenPersonalWechatSettings={openWechatSendSettings}
             />
-            <ReportInfoPanel report={selectedReport} onReveal={handleRevealReport} />
+            <ResponsivePanel title="报告信息">
+              <ReportInfoPanel report={selectedReport} onReveal={handleRevealReport} />
+            </ResponsivePanel>
           </div>
         ) : (
           <div className="report-page">
@@ -2088,7 +2093,8 @@ function App(): React.ReactElement {
               reportTimeoutSeconds={reportGeneration.reportTimeoutSeconds}
               onReportTimeoutSecondsChange={reportGeneration.setReportTimeoutSeconds}
             />
-            <ReportTaskStatusPanel
+            <ResponsivePanel title="生成进度">
+              <ReportTaskStatusPanel
               phase={reportGeneration.phase}
               error={reportGeneration.error}
               voiceTranscriptionProgress={reportGeneration.voiceTranscriptionProgress}
@@ -2103,6 +2109,7 @@ function App(): React.ReactElement {
               }
               onCancelAfterImageFailures={reportGeneration.cancelAfterImageFailures}
             />
+            </ResponsivePanel>
           </div>
         )}
       </div>
@@ -2278,7 +2285,7 @@ function App(): React.ReactElement {
         ? autoConnectSource === 'env'
           ? '检测到环境变量中的密钥'
           : '使用上次安全保存的密钥'
-        : 'TraceMemo')
+        : 'NearCast')
     return (
       <div className={`boot-splash ${appearanceSettings.showStartupProgress ? '' : 'is-quiet'}`}>
         <div className="boot-splash-spinner" aria-hidden />

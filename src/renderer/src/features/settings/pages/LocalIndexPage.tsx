@@ -23,7 +23,7 @@ export function LocalIndexPage({ onNotice, dbReady }: LocalIndexPageProps): Reac
       <header className="local-index-head">
         <h2>本地索引</h2>
         <p>
-          TraceMemo 的搜索、问问微信和图片文字识别依赖本地索引。
+          NearCast 的搜索、问问微信和图片文字识别依赖本地索引。
           所有索引数据仅保存在本机，可随时从微信原始数据重新建立。
         </p>
       </header>

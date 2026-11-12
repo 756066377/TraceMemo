@@ -149,7 +149,7 @@
   text-align: left;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.48);
+    background: color-mix(in srgb, var(--wxex-bg-elevated) 48%, transparent);
     color: var(--wxex-text-primary);
   }
 }
@@ -225,7 +225,7 @@
   text-align: left;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.56);
+    background: color-mix(in srgb, var(--wxex-bg-elevated) 56%, transparent);
   }
 
   &.active {
@@ -334,6 +334,6 @@
 
 .resizer:hover,
 .resizer:active {
-  border-color: rgba(36, 122, 99, 0.22);
-  background-color: rgba(36, 122, 99, 0.06);
+  border-color: color-mix(in srgb, var(--wxex-brand) 22%, transparent);
+  background-color: color-mix(in srgb, var(--wxex-brand) 6%, transparent);
 }

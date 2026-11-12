@@ -482,10 +482,10 @@ export function AutomationWorkspace({
       <header className="automation-page-header">
         <div>
           <h1>自动化</h1>
-          <p>当群里出现符合条件的消息时，TraceMemo 会自动执行你配置的动作。</p>
+          <p>当群里出现符合条件的消息时，NearCast 会自动执行你配置的动作。</p>
         </div>
         <div className="automation-page-header-actions">
-          {/* 微信消息插入开关：控制 TraceMemo 能在微信会话里插入哪些消息 */}
+          {/* 微信消息插入开关：控制 NearCast 能在微信会话里插入哪些消息 */}
           <MessageInsertSwitches />
           {tab === 'rules' && !showEditor ? (
             <Button
@@ -710,7 +710,7 @@ export function AutomationWorkspace({
               <p>没有找到内置的退群通知规则。</p>
               <small>
                 这条规则应由主进程在首次启动时自动创建。如果你刚更新过版本，
-                请重启 TraceMemo —— 已经跑起来的主进程不会自动换成新代码。
+                请重启 NearCast —— 已经跑起来的主进程不会自动换成新代码。
               </small>
               <Button
                 variant="outline"

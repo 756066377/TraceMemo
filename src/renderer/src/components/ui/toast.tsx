@@ -33,7 +33,7 @@ const Toast = React.forwardRef<
   <ToastPrimitive.Root
     ref={ref}
     className={cn(
-      'group pointer-events-auto relative flex w-full items-start justify-between gap-3 overflow-hidden rounded-lg border p-4 shadow-floating duration-normal ease-tm-emphasized data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:slide-out-to-right-full data-[state=open]:animate-in data-[state=open]:slide-in-from-top-full',
+      'tm-glass-panel tm-glass-floating group pointer-events-auto relative flex w-full items-start justify-between gap-3 overflow-hidden rounded-lg border p-4 shadow-floating duration-normal ease-tm-emphasized data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:slide-out-to-right-full data-[state=open]:animate-in data-[state=open]:slide-in-from-top-full',
       variantClassNames[variant],
       className
     )}

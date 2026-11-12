@@ -142,7 +142,7 @@ export function ImageTextIndexSummary({
           <div className="local-index-inline">
             <span className="local-index-stat-label">处理范围</span>
             <Select value={rangeDays} onValueChange={setRangeDays}>
-              <SelectTrigger className="h-7 w-[110px] text-xs">
+              <SelectTrigger aria-label="图片索引处理范围" className="h-7 w-[110px] text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -125,9 +125,9 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
   gap: 9px;
-  border: 1px solid rgba(36, 122, 99, 0.2);
+  border: 1px solid color-mix(in srgb, var(--wxex-brand) 20%, transparent);
   border-radius: var(--wxex-radius-md);
-  background: rgba(36, 122, 99, 0.065);
+  background: color-mix(in srgb, var(--wxex-brand) 6.5%, transparent);
   padding: 10px 12px;
 
   >span {
@@ -196,8 +196,8 @@
   padding: 12px;
 
   &.ready {
-    border-color: rgba(36, 122, 99, 0.28);
-    background: rgba(36, 122, 99, 0.06);
+    border-color: color-mix(in srgb, var(--wxex-brand) 28%, transparent);
+    background: color-mix(in srgb, var(--wxex-brand) 6%, transparent);
   }
 
   &.blocked {
@@ -453,9 +453,9 @@
 .personal-wechat-generation-progress {
   display: grid;
   gap: 9px;
-  border: 1px solid rgba(36, 122, 99, 0.2);
+  border: 1px solid color-mix(in srgb, var(--wxex-brand) 20%, transparent);
   border-radius: var(--wxex-radius-md);
-  background: rgba(36, 122, 99, 0.045);
+  background: color-mix(in srgb, var(--wxex-brand) 4.5%, transparent);
   padding: 11px 12px;
 
   >div:first-child {
@@ -482,7 +482,7 @@
   overflow: hidden;
   height: 5px;
   border-radius: 999px;
-  background: rgba(36, 122, 99, 0.12);
+  background: color-mix(in srgb, var(--wxex-brand) 12%, transparent);
 
   >span {
     position: absolute;
@@ -513,9 +513,9 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
-  border: 1px solid rgba(36, 122, 99, 0.3);
+  border: 1px solid color-mix(in srgb, var(--wxex-brand) 30%, transparent);
   border-radius: var(--wxex-radius-md);
-  background: rgba(36, 122, 99, 0.055);
+  background: color-mix(in srgb, var(--wxex-brand) 5.5%, transparent);
   padding: 11px 12px;
 
   audio {
@@ -579,7 +579,7 @@
   line-height: 1.5;
 
   &.success {
-    background: rgba(36, 122, 99, 0.1);
+    background: color-mix(in srgb, var(--wxex-brand) 10%, transparent);
     color: var(--wxex-success);
   }
 
@@ -1230,7 +1230,7 @@
 .wechat-message-list {
   min-height: 0;
   padding: 18px 28px 24px;
-  background: #f0f2ef;
+  background: var(--wxex-bg-main);
 }
 
 .virtual-message-list {
@@ -1256,7 +1256,7 @@
   margin: 0 0 12px;
   padding: 5px 12px;
   border-radius: var(--wxex-radius-md);
-  background: rgba(255, 255, 255, 0.78);
+  background: color-mix(in srgb, var(--wxex-bg-elevated) 78%, transparent);
   color: var(--wxex-text-secondary);
   font-size: 12px;
   line-height: 1.4;
@@ -1280,8 +1280,8 @@
     }
 
     .message-bubble {
-      border-color: rgba(36, 122, 99, 0.16);
-      background: #e7f2ee;
+      border-color: color-mix(in srgb, var(--wxex-brand) 16%, transparent);
+      background: var(--wxex-brand-soft);
       color: var(--wxex-text-primary);
     }
 
@@ -1295,23 +1295,23 @@
     }
 
     .video-message-bubble {
-      background: #101412;
+      background: var(--color-neutral);
     }
 
     .voice-icon {
-      background: rgba(36, 122, 99, 0.14);
+      background: color-mix(in srgb, var(--wxex-brand) 14%, transparent);
     }
 
     .quoted-message {
-      background: rgba(255, 255, 255, 0.18);
-      color: rgba(255, 255, 255, 0.82);
+      background: color-mix(in srgb, var(--wxex-bg-elevated) 18%, transparent);
+      color: color-mix(in srgb, var(--color-primary-content) 82%, transparent);
     }
   }
 
   &.other {
     .quoted-message {
-      background: #f0f0f0;
-      color: #666;
+      background: var(--wxex-bg-main);
+      color: var(--wxex-text-secondary);
     }
   }
 }
@@ -1328,7 +1328,7 @@
   max-width: min(78%, 760px);
   padding: 6px 12px;
   border-radius: var(--wxex-radius-md);
-  background: rgba(255, 255, 255, 0.72);
+  background: color-mix(in srgb, var(--wxex-bg-elevated) 72%, transparent);
   color: var(--wxex-text-muted);
   font-size: 12px;
   line-height: 1.5;
@@ -1394,9 +1394,9 @@
 .message-bubble {
   position: relative;
   padding: 9px 13px;
-  border: 1px solid rgba(221, 227, 224, 0.74);
+  border: 1px solid color-mix(in srgb, var(--wxex-border) 74%, transparent);
   border-radius: var(--wxex-radius-md);
-  background: #ffffff;
+  background: var(--wxex-bg-elevated);
   color: var(--wxex-text-primary);
   font-size: 14px;
   line-height: 1.55;
@@ -1416,7 +1416,7 @@
 .message-recalled-status {
   align-self: flex-end;
   margin-top: 3px;
-  color: #c63c32;
+  color: var(--wxex-danger);
   font-size: 11px;
   font-weight: 600;
   line-height: 16px;
@@ -1485,19 +1485,19 @@
 .video-message-bubble {
   padding: 0;
   overflow: hidden;
-  background: #101412;
-  border-color: rgba(0, 0, 0, 0.12);
+  background: var(--color-neutral);
+  border-color: color-mix(in srgb, var(--wxex-border) 12%, transparent);
 }
 
 .wechat-message-row.mine .video-message-bubble {
-  background: #101412;
+  background: var(--color-neutral);
 }
 
 .video-message {
   position: relative;
   width: min(320px, 48vw);
   min-height: 140px;
-  background: #101412;
+  background: var(--color-neutral);
 }
 
 .video-content {
@@ -1505,7 +1505,7 @@
   width: 100%;
   max-height: 360px;
   object-fit: contain;
-  background: #101412;
+  background: var(--color-neutral);
 }
 
 .video-duration {
@@ -1514,8 +1514,8 @@
   top: 8px;
   padding: 2px 6px;
   border-radius: 8px;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.55);
+  color: var(--color-primary-content);
+  background: color-mix(in srgb, var(--color-neutral) 55%, transparent);
   font-size: 11px;
   pointer-events: none;
 }
@@ -1526,7 +1526,7 @@
   width: min(260px, 44vw);
   min-height: 120px;
   padding: 16px;
-  color: rgba(255, 255, 255, 0.78);
+  color: color-mix(in srgb, var(--color-primary-content) 78%, transparent);
   text-align: center;
 }
 
@@ -1538,7 +1538,7 @@
   min-height: 72px;
   border-radius: var(--wxex-radius-md);
   overflow: hidden;
-  background: #fff;
+  background: var(--wxex-bg-elevated);
   cursor: zoom-in;
   border: 1px solid var(--wxex-border);
 
@@ -1556,7 +1556,7 @@
   width: auto;
   height: auto;
   object-fit: contain;
-  background: #f7f7f7;
+  background: var(--wxex-bg-main);
 }
 
 .image-loading,
@@ -1576,7 +1576,7 @@
   width: 110px;
   height: 72px;
   border-radius: var(--wxex-radius-md);
-  background: linear-gradient(90deg, #edf1ef 0%, #f7f8f7 50%, #edf1ef 100%);
+  background: linear-gradient(90deg, var(--wxex-bg-main) 0%, var(--wxex-bg-elevated) 50%, var(--wxex-bg-main) 100%);
   background-size: 200% 100%;
   animation: image-skeleton-shimmer 1.2s linear infinite;
 }
@@ -1596,8 +1596,8 @@
   max-width: calc(100% - 12px);
   padding: 3px 6px;
   border-radius: 5px;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
+  background: color-mix(in srgb, var(--color-neutral) 50%, transparent);
+  color: var(--color-primary-content);
   font-size: 11px;
   line-height: 1.3;
   pointer-events: none;
@@ -1616,8 +1616,8 @@
 .image-action-btn {
   border: 0;
   border-radius: 5px;
-  background: rgba(0, 0, 0, 0.48);
-  color: #fff;
+  background: color-mix(in srgb, var(--color-neutral) 48%, transparent);
+  color: var(--color-primary-content);
   cursor: pointer;
   padding: 4px 6px;
 }
@@ -1636,14 +1636,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(36, 122, 99, 0.12);
+  background: color-mix(in srgb, var(--wxex-brand) 12%, transparent);
   color: var(--wxex-brand);
   font-size: 10px;
   line-height: 1;
 }
 
 .wechat-message-row.mine .voice-icon {
-  background: rgba(36, 122, 99, 0.14);
+  background: color-mix(in srgb, var(--wxex-brand) 14%, transparent);
 }
 
 .voice-error {
@@ -1696,13 +1696,13 @@
 }
 
 .sticker-placeholder {
-  color: #666;
+  color: var(--wxex-text-secondary);
   font-size: 14px;
 }
 
 .sticker-md5 {
   max-width: 180px;
-  color: #999;
+  color: var(--wxex-text-secondary);
   font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1721,8 +1721,8 @@
   margin-bottom: 8px;
   padding: 6px 8px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.82);
+  background: color-mix(in srgb, var(--wxex-bg-elevated) 18%, transparent);
+  color: color-mix(in srgb, var(--color-primary-content) 82%, transparent);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -1734,8 +1734,8 @@
 }
 
 .wechat-message-row.other .quoted-message {
-  background: #f0f0f0;
-  color: #666;
+  background: var(--wxex-bg-main);
+  color: var(--wxex-text-secondary);
 }
 
 .quoted-sender {
@@ -1775,7 +1775,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #999;
+  color: var(--wxex-text-secondary);
 }
 
 .chat-status-bar {
@@ -1886,13 +1886,13 @@
 }
 
 .database-login-page {
-  --login-primary: #247a63;
-  --login-primary-dark: #00604c;
-  --login-border: #d7dfda;
-  --login-surface: #f7faf6;
-  --login-surface-low: #f1f4f1;
-  --login-text: #181c1b;
-  --login-muted: #5f6965;
+  --login-primary: var(--wxex-brand);
+  --login-primary-dark: var(--wxex-brand);
+  --login-border: var(--wxex-border);
+  --login-surface: var(--wxex-brand-soft);
+  --login-surface-low: var(--wxex-bg-main);
+  --login-text: var(--wxex-text-primary);
+  --login-muted: var(--wxex-text-secondary);
   width: 100vw;
   min-width: 760px;
   height: 100vh;
@@ -1901,7 +1901,7 @@
   grid-template-columns: minmax(300px, 40%) 1fr;
   overflow: hidden;
   color: var(--login-text);
-  background: #fff;
+  background: var(--wxex-bg-elevated);
 }
 
 .database-login-brand {
@@ -1925,14 +1925,16 @@
   place-items: center;
   margin-bottom: 24px;
   border-radius: 10px;
-  color: #fff;
-  background: var(--login-primary-dark);
-  box-shadow: 0 4px 12px rgba(0, 96, 76, 0.12);
+  color: var(--color-primary-content);
+  background: transparent;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--wxex-brand) 12%, transparent);
 }
 
-.database-login-logo svg {
-  width: 29px;
-  height: 29px;
+.database-login-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .database-login-brand h1 {
@@ -1971,10 +1973,10 @@
   align-items: center;
   gap: 12px;
   padding: 0 14px;
-  border: 1px solid rgba(190, 201, 195, 0.62);
+  border: 1px solid color-mix(in srgb, var(--wxex-border) 62%, transparent);
   border-radius: 7px;
-  color: #35423d;
-  background: rgba(255, 255, 255, 0.42);
+  color: var(--wxex-text-primary);
+  background: color-mix(in srgb, var(--wxex-bg-elevated) 42%, transparent);
   font-size: 13px;
   font-weight: 550;
 }
@@ -1988,7 +1990,7 @@
 .database-login-brand-footer {
   margin-top: auto;
   padding-top: 24px;
-  color: #78827e;
+  color: var(--wxex-text-secondary);
   font-family: 'Work Sans', Inter, sans-serif;
   font-size: 10px;
   font-weight: 650;
@@ -2004,7 +2006,7 @@
   min-height: 0;
   overflow-y: auto;
   padding: 28px clamp(40px, 7vw, 96px);
-  background: #fff;
+  background: var(--wxex-bg-elevated);
 }
 
 .database-login-panel {
@@ -2042,7 +2044,7 @@
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    color: #35423d;
+    color: var(--wxex-text-primary);
 
     >span {
       width: 20px;
@@ -2052,7 +2054,7 @@
       place-items: center;
       border-radius: 50%;
       color: var(--login-primary-dark);
-      background: #e2f0eb;
+      background: var(--wxex-brand-soft);
       font-size: 11px;
       font-weight: 700;
     }
@@ -2110,9 +2112,9 @@
 }
 
 .database-login-state-card.error {
-  border-color: #efc4be;
-  border-left: 3px solid #ba1a1a;
-  background: #fff9f8;
+  border-color: var(--wxex-danger);
+  border-left: 3px solid var(--wxex-danger);
+  background: var(--wxex-brand-soft);
 }
 
 .database-login-state-heading {
@@ -2129,12 +2131,12 @@
   place-items: center;
   border-radius: 50%;
   color: var(--login-primary);
-  background: #e2f0eb;
+  background: var(--wxex-brand-soft);
 }
 
 .database-login-state-card.error .database-login-state-icon {
-  color: #ba1a1a;
-  background: #ffebe8;
+  color: var(--wxex-danger);
+  background: var(--wxex-brand-soft);
 }
 
 .database-login-state-icon svg {
@@ -2160,7 +2162,7 @@
 
 .database-login-diagnostics {
   margin: 0;
-  border-top: 1px solid #e2e7e4;
+  border-top: 1px solid var(--wxex-border);
 }
 
 .database-login-diagnostics>div {
@@ -2168,7 +2170,7 @@
   display: grid;
   grid-template-columns: 112px 1fr;
   align-items: center;
-  border-bottom: 1px solid #e2e7e4;
+  border-bottom: 1px solid var(--wxex-border);
 }
 
 .database-login-diagnostics>div:last-child {
@@ -2179,7 +2181,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #6e7874;
+  color: var(--wxex-text-secondary);
   font-family: 'Work Sans', Inter, sans-serif;
   font-size: 10px;
   font-weight: 650;
@@ -2189,7 +2191,7 @@
 .database-login-diagnostics dd {
   min-width: 0;
   margin: 0;
-  color: #35423d;
+  color: var(--wxex-text-primary);
   font-size: 12px;
   text-align: right;
 }
@@ -2204,7 +2206,7 @@
 .database-login-guide-progress span {
   height: 4px;
   border-radius: 2px;
-  background: #dce4df;
+  background: var(--wxex-bg-sidebar);
 }
 
 .database-login-guide-progress span.active {
@@ -2241,11 +2243,11 @@
   z-index: 25;
   width: min(520px, calc(100vw - 48px));
   padding: 9px 11px;
-  border: 1px solid #d7dfda;
+  border: 1px solid var(--wxex-border);
   border-radius: 7px;
-  color: #35423d;
-  background: #fff;
-  box-shadow: 0 6px 18px rgba(24, 28, 27, 0.13);
+  color: var(--wxex-text-primary);
+  background: var(--wxex-bg-elevated);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-neutral) 13%, transparent);
   font-size: 11px;
   line-height: 17px;
   text-align: left;
@@ -2281,7 +2283,7 @@
 
 .database-login-platform-note {
   margin: 12px 0 0;
-  color: #77817d;
+  color: var(--wxex-text-secondary);
   font-size: 11px;
   line-height: 17px;
   text-align: center;
@@ -2300,7 +2302,7 @@
   margin: 0 0 20px;
   padding: 10px 12px;
   border-radius: 7px;
-  color: #65706b;
+  color: var(--wxex-text-secondary);
   background: var(--login-surface-low);
   font-size: 11px;
   line-height: 17px;
@@ -2319,7 +2321,7 @@
   align-items: center;
   gap: 7px;
   margin-bottom: 8px;
-  color: #35423d;
+  color: var(--wxex-text-primary);
   font-size: 12px;
   font-weight: 600;
 }
@@ -2335,10 +2337,10 @@
   height: 15px;
   display: inline-grid;
   place-items: center;
-  border: 1px solid #9a6b18;
+  border: 1px solid var(--wxex-warning);
   border-radius: 50%;
-  color: #8a5d0b;
-  background: #fff8e6;
+  color: var(--wxex-warning);
+  background: var(--wxex-brand-soft);
   cursor: help;
   font-family: Inter, sans-serif;
   font-size: 10px;
@@ -2353,11 +2355,11 @@
   z-index: 20;
   width: 260px;
   padding: 9px 11px;
-  border: 1px solid #d7dfda;
+  border: 1px solid var(--wxex-border);
   border-radius: 7px;
-  color: #35423d;
-  background: #fff;
-  box-shadow: 0 6px 18px rgba(24, 28, 27, 0.12);
+  color: var(--wxex-text-primary);
+  background: var(--wxex-bg-elevated);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-neutral) 12%, transparent);
   font-family: Inter, sans-serif;
   font-size: 11px;
   font-weight: 400;
@@ -2402,14 +2404,14 @@
 .database-login-field small {
   display: block;
   margin-top: 7px;
-  color: #77817d;
+  color: var(--wxex-text-secondary);
   font-size: 11px;
 }
 
 .database-login-message {
   padding: 10px 12px;
   border-radius: 7px;
-  color: #57625d;
+  color: var(--wxex-text-secondary);
   background: var(--login-surface-low);
   font-size: 12px;
   line-height: 18px;
@@ -2418,12 +2420,12 @@
 
 .database-login-message.success {
   color: var(--login-primary-dark);
-  background: #edf7f3;
+  background: var(--wxex-brand-soft);
 }
 
 .database-login-message.error {
-  color: #93000a;
-  background: #fff0ee;
+  color: var(--wxex-danger);
+  background: var(--wxex-brand-soft);
 }
 
 .database-login-secondary {
@@ -2436,8 +2438,8 @@
   justify-content: space-between;
   margin-top: 42px;
   padding-top: 16px;
-  border-top: 1px solid #e5e9e6;
-  color: #8a938f;
+  border-top: 1px solid var(--wxex-border);
+  color: var(--wxex-text-secondary);
   font-size: 11px;
 }
 
@@ -2474,7 +2476,7 @@
   gap: 12px;
   align-items: center;
   padding: 12px;
-  border: 1px solid var(--border-color, #d8e2dc);
+  border: 1px solid var(--border-color, var(--wxex-border));
   border-radius: 8px;
   background: transparent;
   color: inherit;
@@ -2482,8 +2484,8 @@
   cursor: pointer;
 
   &.selected {
-    border-color: #176b57;
-    box-shadow: 0 0 0 2px #176b5720;
+    border-color: var(--wxex-brand);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--wxex-brand) 12.549%, transparent);
   }
 }
 
@@ -2494,7 +2496,7 @@
   place-items: center;
   overflow: hidden;
   border-radius: 6px;
-  background: #dcebe4;
+  background: var(--wxex-brand-soft);
 
   img {
     width: 100%;
@@ -2511,7 +2513,7 @@
 
   small,
   code {
-    color: var(--text-secondary, #68766f);
+    color: var(--text-secondary, var(--wxex-text-secondary));
   }
 
   code {

@@ -58,7 +58,7 @@
 }
 
 .voice-transcript-error {
-  color: var(--wxex-danger, #c63c3c);
+  color: var(--wxex-danger, var(--wxex-danger));
 }
 
 .voice-loading {
@@ -85,7 +85,7 @@
 }
 
 .voice-icon.playing {
-  background: rgba(36, 122, 99, 0.18);
+  background: color-mix(in srgb, var(--wxex-brand) 18%, transparent);
 }
 
 /* Rich Message Bubbles */
@@ -154,8 +154,8 @@
   width: 40px;
   height: 40px;
   border-radius: 6px;
-  background: #07c160;
-  color: #fff;
+  background: var(--wxex-brand);
+  color: var(--color-primary-content);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -178,14 +178,14 @@
 
 .card-username {
   font-size: 12px;
-  color: #666;
+  color: var(--wxex-text-secondary);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 
   &:hover {
-    color: #07c160;
+    color: var(--wxex-brand);
   }
 }
 
@@ -200,7 +200,7 @@
 
 .share-appname {
   font-size: 11px;
-  color: #999;
+  color: var(--wxex-text-secondary);
 }
 
 .share-title {
@@ -212,7 +212,7 @@
 
 .share-desc {
   font-size: 12px;
-  color: #666;
+  color: var(--wxex-text-secondary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -221,7 +221,7 @@
 
 .share-url {
   font-size: 11px;
-  color: #999;
+  color: var(--wxex-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -368,8 +368,8 @@
   width: min(280px, 48vw);
   overflow: hidden;
   border-radius: 6px;
-  background: #fa9d3b;
-  color: #fff;
+  background: var(--wxex-warning);
+  color: var(--color-primary-content);
 
   &.is-clickable {
     cursor: pointer;
@@ -390,9 +390,9 @@
   height: 36px;
   flex: 0 0 36px;
   place-items: center;
-  border: 2px solid rgba(255, 239, 170, 0.92);
+  border: 2px solid color-mix(in srgb, var(--wxex-warning) 92%, transparent);
   border-radius: 50%;
-  color: #fff1a8;
+  color: var(--wxex-warning);
   font-size: 18px;
   font-weight: 700;
 }
@@ -414,14 +414,14 @@
 }
 
 .red-packet-copy small {
-  color: rgba(255, 255, 255, 0.82);
+  color: color-mix(in srgb, var(--color-primary-content) 82%, transparent);
   font-size: 12px;
   line-height: 18px;
 }
 
 .red-packet-footer {
   padding: 5px 14px;
-  background: #fff;
+  background: var(--wxex-bg-elevated);
   color: var(--wxex-text-muted);
   font-size: 11px;
   line-height: 16px;

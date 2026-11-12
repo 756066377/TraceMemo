@@ -1,0 +1,305 @@
+// Page-scoped layout; business state and global theme tokens remain shared.
+.personal-wechat-send-page {
+  .settings-page-header {
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .settings-page-header > div:first-child {
+    flex: 1 1 300px;
+    min-width: 0;
+  }
+
+  .settings-page-content {
+    width: min(100%, 1200px);
+    container-type: inline-size;
+    padding: 24px 32px 48px;
+  }
+
+  .wechat-send-header-actions,
+  .wechat-hook-actions,
+  .wechat-send-port-actions,
+  .wechat-hook-version {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .wechat-send-overview {
+    margin-bottom: 24px;
+    padding: 20px 24px;
+    border: 1px solid var(--tm-border-subtle);
+    border-radius: var(--tm-radius-xl);
+    background: var(--tm-glass-emphasis-bg);
+  }
+
+  .wechat-send-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    margin: 0;
+
+    > div {
+      min-width: 0;
+      padding-inline-start: 20px;
+      border-inline-start: 1px solid var(--tm-border-subtle);
+    }
+
+    > div:first-child {
+      padding-inline-start: 0;
+      border-inline-start: 0;
+    }
+
+    dt {
+      margin-bottom: 8px;
+      color: var(--wxex-text-secondary);
+      font-size: 12px;
+    }
+
+    dd {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .wechat-send-overview-note {
+      margin-top: 6px;
+      color: var(--wxex-text-secondary);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.6;
+    }
+  }
+
+  .wechat-send-layout,
+  .wechat-send-main {
+    display: grid;
+    min-width: 0;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .wechat-send-section {
+    min-width: 0;
+    // The workspace already blurs the background; do not stack filters on form cards.
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+
+    > .dui-card-body {
+      min-width: 0;
+      padding: 24px;
+      gap: 16px;
+    }
+
+    .dui-card-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .dui-card-body > p.text-muted-foreground {
+      margin: -8px 0 0;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+  }
+
+  .wechat-send-port-row {
+    display: grid;
+    gap: 12px;
+  }
+
+  .wechat-send-port-field {
+    display: grid;
+    gap: 8px;
+    max-width: 240px;
+    color: var(--wxex-text-primary);
+    font-size: 13px;
+  }
+
+  .wechat-send-port-input {
+    width: 100%;
+    min-height: 40px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wechat-send-status-line {
+    margin: 0;
+    padding: 12px 14px;
+    border-inline-start: 3px solid var(--wxex-brand);
+    border-radius: 4px 8px 8px 4px;
+    background: var(--wxex-brand-soft);
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+  }
+
+  .wechat-send-hint {
+    margin: 0;
+    color: var(--wxex-text-secondary);
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+  }
+
+  .wechat-send-error {
+    margin: 0;
+    color: var(--wxex-danger);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .wechat-hook-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 24px;
+    margin: 0;
+    padding: 16px;
+    border-radius: 12px;
+    background: var(--wxex-bg-main);
+
+    dt {
+      margin-bottom: 5px;
+      color: var(--wxex-text-secondary);
+      font-size: 12px;
+    }
+
+    dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+  }
+
+  .wechat-hook-reasons {
+    margin: 0;
+    padding: 12px 16px 12px 30px;
+    border-radius: 8px;
+    background: var(--wxex-bg-main);
+    color: var(--wxex-text-secondary);
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+  }
+
+  .wechat-send-group-label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--wxex-text-secondary);
+    font-size: 12px;
+  }
+
+  .wechat-hook-maintenance,
+  .wechat-hook-resources,
+  .wechat-hook-compatibility {
+    padding-top: 16px;
+    border-top: 1px solid var(--tm-border-subtle);
+  }
+
+  .wechat-hook-compatibility h3 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .wechat-hook-force {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .wechat-send-capabilities {
+    display: grid;
+    gap: 0;
+  }
+
+  .wechat-send-capability {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--tm-border-subtle);
+    font-size: 13px;
+  }
+
+  .wechat-send-details {
+    min-width: 0;
+    border: 1px solid var(--tm-border-subtle);
+    border-radius: 10px;
+    background: var(--wxex-bg-main);
+
+    summary {
+      min-height: 44px;
+      padding: 12px 36px 12px 12px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .dui-collapse-content {
+      padding-inline: 12px;
+      font-size: 12px;
+      line-height: 1.8;
+      overflow-wrap: anywhere;
+    }
+
+    ul {
+      padding-inline-start: 18px;
+    }
+
+    li + li {
+      margin-top: 10px;
+    }
+  }
+
+  .dui-btn,
+  summary,
+  input {
+    scroll-margin-block: 20px;
+  }
+
+  @container (min-width: 800px) {
+    .wechat-send-layout {
+      grid-template-columns: minmax(0, 1fr) 260px;
+    }
+  }
+
+  @container (max-width: 480px) {
+    .wechat-send-overview {
+      padding: 16px;
+    }
+
+    .wechat-send-overview-grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+
+      > div,
+      > div:first-child {
+        padding: 0 0 12px;
+        border-inline-start: 0;
+        border-bottom: 1px solid var(--tm-border-subtle);
+      }
+
+      > div:last-child {
+        padding-bottom: 0;
+        border-bottom: 0;
+      }
+    }
+
+    .wechat-hook-facts {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .wechat-send-section > .dui-card-body {
+      padding: 16px;
+    }
+  }
+}

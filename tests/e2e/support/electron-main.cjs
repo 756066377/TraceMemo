@@ -28,6 +28,16 @@ const formatFixtureDateTime = (timestampSeconds) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
+const extraMessages = Number(process.env.WXE_E2E_LARGE_MESSAGES || 0)
+for (let index = 0; index < extraMessages; index += 1) {
+  fixture.messages['group-regular-md5'].push({
+    id: `perf-message-${index}`, localId: 10000 + index, from: 'user',
+    type: '文字', content: `长列表性能消息 ${index}：保留可换行正文和稳定滚动。`.repeat(4),
+    contentData: { type: 'text', content: `长列表性能消息 ${index}：保留可换行正文和稳定滚动。`.repeat(4) },
+    senderId: `perf-sender-${index % 2}`, name: `成员 ${index % 2}`,
+    createTime: 1785553260 + index * 60, datetime: '', isSender: false
+  })
+}
 const allFixtureMessages = Object.values(fixture.messages).flat()
 const latestFixtureTime = Math.max(...allFixtureMessages.map((message) => message.createTime || 0))
 const fixtureTimeOffset = Math.floor(fixtureNowMs / 1000) - 3600 - latestFixtureTime
@@ -154,7 +164,7 @@ const aiSearchResult = (request) => {
     agent: { mode: 'fallback', toolCalls: 0, trace: [], fallbackReason: 'E2E fixture' },
     citationValidation: { status: 'valid', invalidCitationIds: [] },
     timings: emptyTimings(),
-    answer: failure ? undefined : '固定假回答：测试数据中的核心流程正常。',
+    answer: failure ? undefined : '固定假回答：测试数据中的核心流程正常。[E1]',
     ai: {
       providerName: '本地假服务',
       modelName: '固定响应模型',
@@ -969,6 +979,27 @@ handle('db:getMessages', (md5, startTime, endTime, options) => {
   if (options && options.limit) messages = messages.slice(-options.limit)
   return messages
 })
+handle('image-text-index:count', (sinceMs) => ({
+  totalImageMessages: allFixtureMessages.filter((message) =>
+    message.contentData?.type === 'image' && (!sinceMs || message.createTime * 1000 >= sinceMs)
+  ).length,
+  scannedConversations: contacts.length,
+  failedConversations: 0,
+  typeColumn: 'message_type',
+  durationMs: 1
+}))
+handle('image-text-index:getStatus', () => {
+  const counts = {
+    totalImageMessages: 1, processed: 0, indexed: 0, empty: 0, missing: 0,
+    failed: 0, runtimeUnavailable: 0, pending: 1, systemicFailure: false
+  }
+  return {
+    progress: { ...counts, state: 'idle', percent: 0, processedPercent: 0, updatedAt: fixtureNowMs, cancellable: false, paused: false },
+    coverage: { ...counts, established: false, complete: false, countedAt: fixtureNowMs, tiers: [], coveredToMs: null },
+    storage: { indexedImages: 0, ocrTextCount: 0, totalBytes: 0, updatedAt: null },
+    counting: false
+  }
+})
 handle('test:messageChange', (payload = {}) => {
   const md5 = String(payload.md5 || '')
   const message = payload.message
@@ -1123,6 +1154,17 @@ handle('ai:getVisionRuntimeConfig', () => ({
   timeoutMs: 5000,
   source: 'vision-capability'
 }))
+// Use the production catalog so the redesigned settings page exercises real template choices.
+handle('ai:getProviderCatalog', () => {
+  const ts = require('typescript')
+  const source = fs.readFileSync(path.join(root, 'src/shared/ai-provider-catalog.ts'), 'utf8')
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+  }).outputText
+  const catalog = {}
+  new Function('exports', compiled)(catalog)
+  return catalog.AI_PROVIDER_TEMPLATES
+})
 handle('ai:listProviders', () => ({
   success: true,
   providers: [

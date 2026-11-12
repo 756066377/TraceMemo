@@ -112,7 +112,7 @@ export function VoiceEncodingEnvironmentSection({
         <div>
           <span className="settings-card-kicker">微信语音发送</span>
           <h2>语音编码环境</h2>
-          <p>检查 TraceMemo 实际使用的 Python、pilk 和 FFmpeg，避免发送后才发现语音无法播放。</p>
+          <p>检查 NearCast 实际使用的 Python、pilk 和 FFmpeg，避免发送后才发现语音无法播放。</p>
         </div>
         <Button
           variant="outline"

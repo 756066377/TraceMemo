@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { RadioGroup, RadioGroupItem, Switch } from '../../../components/ui'
+import { GlassCard, RadioGroup, RadioGroupItem, Switch } from '../../../components/ui'
 
 export type AppearanceTheme = 'system' | 'light' | 'dark'
 /** 关闭主窗口时的行为。与主进程 settings-store 的 `CloseAction` 保持一致。 */
@@ -64,7 +64,7 @@ export function AppearancePage({
       <div className="settings-page-scroll">
         <div className="settings-page-content">
           <h2 className="settings-section-heading">显示主题</h2>
-          <section className="settings-card settings-option-card">
+          <GlassCard className="settings-option-card">
             <RadioGroup
               className="settings-choice-grid"
               value={theme}
@@ -76,8 +76,8 @@ export function AppearancePage({
               {(
                 [
                   ['system', '跟随系统', '根据 macOS 或 Windows 外观自动切换'],
-                  ['light', '浅色', '保持当前清爽的浅色工作区'],
-                  ['dark', '深色', '降低夜间浏览时的亮度']
+                  ['light', '浅色', '冷雾白与浅蓝灰玻璃面板'],
+                  ['dark', '深色', '深海蓝与冷青色的夜航工作区']
                 ] as const
               ).map(([value, label, hint]) => (
                 <label
@@ -97,10 +97,10 @@ export function AppearancePage({
                 </label>
               ))}
             </RadioGroup>
-          </section>
+          </GlassCard>
 
           <h2 className="settings-section-heading">工作区行为</h2>
-          <section className="settings-card settings-toggle-list">
+          <GlassCard className="settings-toggle-list">
             <label className="settings-toggle-row">
               <span>
                 <b>紧凑布局</b>
@@ -123,10 +123,10 @@ export function AppearancePage({
                 aria-label="显示启动进度"
               />
             </label>
-          </section>
+          </GlassCard>
 
           <h2 className="settings-section-heading">关闭窗口时</h2>
-          <section className="settings-card settings-option-card">
+          <GlassCard className="settings-option-card">
             <RadioGroup
               className="settings-choice-grid"
               value={closeAction}
@@ -139,7 +139,7 @@ export function AppearancePage({
                 [
                   ['ask', '每次询问', '每次关闭窗口都弹出选择框'],
                   ['tray', '最小化到托盘', '窗口隐藏，应用继续在后台运行'],
-                  ['quit', '退出应用', '直接结束整个 TraceMemo 进程']
+                  ['quit', '退出应用', '直接结束整个 NearCast 进程']
                 ] as const
               ).map(([value, label, hint]) => (
                 <label
@@ -162,7 +162,7 @@ export function AppearancePage({
             <p className="settings-option-hint">
               选择「每次询问」时，关闭弹窗里勾选「记住我的选择」会自动切换到这里对应的项。
             </p>
-          </section>
+          </GlassCard>
         </div>
       </div>
     </div>

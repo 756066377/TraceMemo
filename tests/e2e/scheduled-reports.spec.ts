@@ -125,7 +125,10 @@ test('SCHEDULED-REPORT-UI-01 creates a scheduled report rule from the automation
     await expect(page.getByRole('button', { name: '+ 新建定时日报' }).first()).toBeVisible()
 
     // 发送能力状态仍是设置页里的同一份事实。
-    await page.getByRole('button', { name: '设置' }).click()
+    await page
+      .getByRole('navigation', { name: '一级导航' })
+      .getByRole('button', { name: '设置', exact: true })
+      .click()
     await page.getByRole('button', { name: '微信发送', exact: true }).click()
     await expect(page.getByRole('heading', { name: '微信发送' })).toBeVisible()
     /*
@@ -137,7 +140,7 @@ test('SCHEDULED-REPORT-UI-01 creates a scheduled report rule from the automation
      */
     await expect(
       page.getByRole('heading', {
-        name: process.platform === 'darwin' ? '配置状态' : '发送能力',
+        name: process.platform === 'darwin' ? '配置状态' : '端口与连接',
         exact: true
       })
     ).toBeVisible()

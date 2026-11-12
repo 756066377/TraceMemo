@@ -1,27 +1,27 @@
 :root {
   // Original TraceMemo brand tokens remain available while the UI Layer consumes --tm-*.
-  --wxex-bg-app: hsl(var(--tm-background));
-  --wxex-bg-main: hsl(var(--tm-canvas));
-  --wxex-bg-sidebar: hsl(var(--tm-surface-muted));
-  --wxex-bg-elevated: hsl(var(--tm-surface-elevated));
-  --wxex-text-primary: hsl(var(--tm-foreground));
-  --wxex-text-secondary: hsl(var(--tm-muted-foreground));
-  --wxex-text-muted: hsl(var(--tm-subtle-foreground));
-  --wxex-border: hsl(var(--tm-border));
-  --wxex-brand: hsl(var(--tm-primary));
-  --wxex-brand-hover: hsl(var(--tm-primary-hover));
-  --wxex-brand-soft: hsl(var(--tm-accent));
-  --wxex-ai: hsl(var(--tm-ai));
-  --wxex-ai-soft: hsl(var(--tm-ai-soft));
-  --wxex-success: hsl(var(--tm-success));
-  --wxex-warning: hsl(var(--tm-warning));
-  --wxex-danger: hsl(var(--tm-destructive));
+  --wxex-bg-app: var(--tm-background);
+  --wxex-bg-main: var(--tm-canvas);
+  --wxex-bg-sidebar: var(--tm-surface-muted);
+  --wxex-bg-elevated: var(--tm-surface-elevated);
+  --wxex-text-primary: var(--tm-foreground);
+  --wxex-text-secondary: var(--tm-muted-foreground);
+  --wxex-text-muted: var(--tm-subtle-foreground);
+  --wxex-border: var(--tm-border);
+  --wxex-brand: var(--tm-primary);
+  --wxex-brand-hover: var(--tm-primary-hover);
+  --wxex-brand-soft: var(--tm-accent);
+  --wxex-ai: var(--tm-ai);
+  --wxex-ai-soft: var(--tm-ai-soft);
+  --wxex-success: var(--tm-success);
+  --wxex-warning: var(--tm-warning);
+  --wxex-danger: var(--tm-destructive);
   --wxex-font:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --wxex-nav-width: 88px;
   --wxex-shell-content-top: 12px;
-  --wxex-radius-sm: 4px;
-  --wxex-radius-md: 8px;
-  --wxex-radius-lg: 12px;
-  --wxex-shadow-popover: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --wxex-radius-sm: var(--tm-radius-sm);
+  --wxex-radius-md: var(--tm-radius-md);
+  --wxex-radius-lg: var(--tm-radius-lg);
+  --wxex-shadow-popover: var(--tm-shadow-popover);
 }

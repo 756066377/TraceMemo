@@ -43,7 +43,13 @@ export function AccountSummary({
 
   if (compact) {
     return (
-      <button type="button" className="account-summary compact" onClick={onClick} title={title}>
+      <button
+        type="button"
+        className="account-summary compact"
+        onClick={onClick}
+        title={title}
+        aria-label={`${displayName}，${statusText}，打开账号设置`}
+      >
         {avatar}
       </button>
     )

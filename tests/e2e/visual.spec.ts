@@ -20,7 +20,7 @@ test.skip(
 test('NAV-01 login page visual @visual', async () => {
   const fixture = await launchTestApp({ mode: 'disconnected' })
   try {
-    await expect(fixture.page.getByRole('heading', { name: 'TraceMemo（迹忆）' })).toBeVisible()
+    await expect(fixture.page.getByRole('heading', { name: 'NearCast', exact: true })).toBeVisible()
     await clearScreenshotFocus(fixture.page)
     await expect(fixture.page).toHaveScreenshot('login-page.png', {
       animations: 'disabled',
@@ -711,13 +711,11 @@ for (const appearanceTheme of ['light', 'dark'] as const) {
         .click()
       await fixture.page.getByRole('button', { name: 'AI 模型' }).click()
       await fixture.page.getByRole('button', { name: '添加供应商' }).click()
-      await expect(fixture.page.getByRole('heading', { name: '新增供应商' })).toBeVisible()
-      await fixture.page.getByLabel('供应商 ID').fill('fixture-new-provider')
-      await expect(fixture.page.getByRole('combobox', { name: '快速模板' })).toBeVisible()
-      // Pin the screenshot after fill() auto-scroll to avoid half-pixel capture drift.
-      await fixture.page
-        .locator('.settings-page-scroll')
-        .evaluate((element) => (element.scrollTop = 396))
+      const editor = fixture.page.getByRole('dialog', { name: '添加供应商' })
+      await expect(editor).toBeVisible()
+      await editor.getByRole('button', { name: /^OpenAI api\.openai\.com/ }).click()
+      await expect(editor.getByRole('combobox', { name: '接口类型' })).toBeVisible()
+      await expect(editor).toHaveCSS('opacity', '1')
       expect(
         await fixture.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
       ).toBe(true)

@@ -69,12 +69,9 @@ describe('personal WeChat unavailable product state', () => {
 
     expect(screen.getByRole('heading', { name: '先准备好微信消息功能' })).toBeVisible()
     expect(screen.getByRole('button', { name: '绑定微信' })).toBeDisabled()
-    expect(screen.getByRole('alert')).toHaveTextContent('发送能力属授权制，需要联系群主')
-    expect(screen.getByText(/发送能力属授权制，需要联系群主/)).toBeVisible()
-    expect(screen.getByRole('link', { name: '这里' })).toHaveAttribute(
-      'href',
-      'https://github.com/Wxw-Gu/TraceMemo#-交流与反馈'
-    )
+    expect(screen.queryByText(/发送能力属授权制|联系群主/)).toBeNull()
+    expect(screen.getByText(/发送运行时未就绪/)).toBeVisible()
+    expect(screen.queryByRole('link', { name: '这里' })).toBeNull()
     expect(screen.queryByRole('button', { name: '下载运行时' })).not.toBeInTheDocument()
     expect(screen.queryByText('查看支持的微信版本')).not.toBeInTheDocument()
     expect(screen.queryByText('高级诊断')).not.toBeInTheDocument()
@@ -86,11 +83,9 @@ describe('personal WeChat unavailable product state', () => {
 
     expect(await screen.findByRole('heading', { name: '先准备好微信消息功能' })).toBeVisible()
     expect(screen.getByRole('button', { name: '绑定微信' })).toBeDisabled()
-    expect(screen.getByText(/发送能力属授权制，需要联系群主/)).toBeVisible()
-    expect(screen.getByRole('link', { name: '这里' })).toHaveAttribute(
-      'href',
-      'https://github.com/Wxw-Gu/TraceMemo#-交流与反馈'
-    )
+    expect(screen.queryByText(/发送能力属授权制|联系群主/)).toBeNull()
+    expect(screen.getByText(/发送运行时未就绪/)).toBeVisible()
+    expect(screen.queryByRole('link', { name: '这里' })).toBeNull()
     expect(screen.queryByText(/manifest|dylib|runtime missing|文件缺失/i)).not.toBeInTheDocument()
   })
 })

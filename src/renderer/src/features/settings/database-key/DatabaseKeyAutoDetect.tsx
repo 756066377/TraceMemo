@@ -51,7 +51,7 @@ export function DatabaseKeyAutoDetect({
               ? '请让微信停在未登录界面，按页面提示操作即可。'
               : isAppleSiliconMac
                 ? '执行时会请求管理员授权；授权后在微信登录界面点击“登录”即可，已有登录凭据时通常不需要扫码。监听最长两分钟，结束后会明确显示结果。'
-                : 'TraceMemo 可在微信桌面端正在运行时，通过本机内存扫描尝试获取数据库密钥。'}
+                : 'NearCast 可在微信桌面端正在运行时，通过本机内存扫描尝试获取数据库密钥。'}
           </p>
         </div>
         <Button variant="outline" onClick={onDetect} disabled={disabled}>

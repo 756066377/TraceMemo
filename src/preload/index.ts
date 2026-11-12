@@ -20,9 +20,12 @@ import type {
   AiSearchExternalAuthorizationResult,
   AiSearchProviderStatus,
   AIProviderConfig,
+  AIProviderProbeRequest,
   AIVisionTestRequest,
   LegacyAIConfig
 } from '../shared/ai-provider'
+import type { AIProviderAdvisorInfo, AIProviderAdvisorReport } from '../shared/ai-provider-advisor'
+import type { AIProviderTemplate } from '../shared/ai-provider-catalog'
 import type {
   ImageAnalysisRequest,
   ImageAnalysisResponse,
@@ -43,6 +46,9 @@ import type {
   AgentHubConversationSummary
 } from '../shared/agent-hub-conversation'
 import type {
+  PersonalWechatEndpointScanResult,
+  WechatHookComponentStatus,
+  WechatHookInstallResult,
   PersonalWechatGeneratedTtsVoiceRequest,
   PersonalWechatGeneratedTtsVoiceResult,
   PersonalWechatSendRequest,
@@ -124,6 +130,8 @@ import type {
   SaveTextToSpeechSettingsRequest,
   SynthesizeTextToSpeechRequest
 } from '../shared/text-to-speech'
+import type { ReplyAssistantRequest, ReplyAssistantResult } from '../shared/reply-assistant'
+import type { RelationshipProfile, RelationshipProfileInput } from '../shared/relationship-profile'
 
 // 渲染器的自定义 API
 const api = {
@@ -309,7 +317,28 @@ const api = {
   },
   aiChat: (messages: { role: string; content: string }[], options?: AIChatRequestOptions) =>
     ipcRenderer.invoke('ai:chat', messages, options),
+  /** Windows-only: 主进程从当前会话的本地微信数据库取消息，不接受渲染层传入聊天原文。 */
+  analyzeReply: (request: ReplyAssistantRequest): Promise<ReplyAssistantResult> =>
+    ipcRenderer.invoke('reply-assistant:analyze', request),
+  getRelationshipProfile: (userMd5: string): Promise<RelationshipProfile> =>
+    ipcRenderer.invoke('relationship:get', userMd5),
+  listRelationshipProfiles: (): Promise<RelationshipProfile[]> =>
+    ipcRenderer.invoke('relationship:list'),
+  saveRelationshipProfile: (
+    input: RelationshipProfileInput
+  ): Promise<{ success: boolean; profile?: RelationshipProfile; error?: string }> =>
+    ipcRenderer.invoke('relationship:save', input),
+  removeRelationshipProfile: (userMd5: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('relationship:remove', userMd5),
   listAIProviders: () => ipcRenderer.invoke('ai:listProviders'),
+  getAIProviderCatalog: (): Promise<AIProviderTemplate[]> =>
+    ipcRenderer.invoke('ai:getProviderCatalog'),
+  getAIProviderAdvisor: (): Promise<AIProviderAdvisorInfo> =>
+    ipcRenderer.invoke('ai:getProviderAdvisor'),
+  previewAIProviderSetup: (provider: AIProviderConfig): Promise<AIProviderAdvisorReport> =>
+    ipcRenderer.invoke('ai:previewProviderSetup', provider),
+  probeAIProviderModels: (request: AIProviderProbeRequest) =>
+    ipcRenderer.invoke('ai:probeProviderModels', request),
   getAIRuntimeConfig: () => ipcRenderer.invoke('ai:getRuntimeConfig'),
   getAIVisionRuntimeConfig: () => ipcRenderer.invoke('ai:getVisionRuntimeConfig'),
   getAiSearchProviderStatus: (): Promise<AiSearchProviderStatus> =>
@@ -589,6 +618,36 @@ const api = {
     ipcRenderer.invoke('wechat-personal:getSendCapability'),
   checkPersonalWechatSenderStatus: (port?: string): Promise<PersonalWechatSenderStatus> =>
     ipcRenderer.invoke('wechat-personal:checkStatus', port),
+  scanPersonalWechatEndpoint: (): Promise<PersonalWechatEndpointScanResult> =>
+    ipcRenderer.invoke('wechat-personal:scanEndpoint'),
+  getWechatHookComponentStatus: (): Promise<WechatHookComponentStatus> =>
+    ipcRenderer.invoke('wechat-hook:getStatus'),
+  startWechatWithHook: (): Promise<WechatHookInstallResult> =>
+    ipcRenderer.invoke('wechat-hook:start'),
+  importWechatHookDll: (): Promise<{ success: boolean; error?: string; canceled?: boolean }> =>
+    ipcRenderer.invoke('wechat-hook:importFromDialog'),
+  pickAndInjectWechatHook: (options?: {
+    force?: boolean
+  }): Promise<WechatHookInstallResult & { canceled?: boolean }> =>
+    ipcRenderer.invoke('wechat-hook:pickAndInstall', options),
+  installWechatHook: (options?: { force?: boolean }): Promise<WechatHookInstallResult> =>
+    ipcRenderer.invoke('wechat-hook:install', options),
+  uninstallWechatHook: (): Promise<WechatHookInstallResult> =>
+    ipcRenderer.invoke('wechat-hook:uninstall'),
+  injectRunningWechatHook: (options?: {
+    force?: boolean
+  }): Promise<{
+    success: boolean
+    error?: string
+    steps: string[]
+    port?: string
+  }> => ipcRenderer.invoke('wechat-hook:injectRunning', options),
+  openWechatHookReleasePage: (): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('wechat-hook:openReleasePage'),
+  openWechatHookWechatDownload: (): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('wechat-hook:openWechatDownload'),
+  closeWechatForHook: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('wechat-hook:closeWechat'),
   checkPersonalWechatVoiceEncodingEnvironment:
     (): Promise<PersonalWechatVoiceEncodingEnvironment> =>
       ipcRenderer.invoke('wechat-personal:checkVoiceEnvironment'),
@@ -604,7 +663,7 @@ const api = {
     request: PersonalWechatGeneratedTtsVoiceRequest
   ): Promise<PersonalWechatGeneratedTtsVoiceResult> =>
     ipcRenderer.invoke('wechat-personal:sendGeneratedTtsVoice', request),
-  // 日报图片发送仍使用现有业务发送链路；普通聊天 Composer 不暴露此入口。
+  // 日报图片、档案和 AI 回复草稿共用现有发送链路。
   sendPersonalWechatMessage: (
     request: PersonalWechatSendRequest
   ): Promise<PersonalWechatSendResult> => ipcRenderer.invoke('wechat-personal:send', request),

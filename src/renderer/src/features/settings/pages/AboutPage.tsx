@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Button, Progress } from '../../../components/ui'
 import { useAppUpdateState } from '../../app-update/useAppUpdateState'
+import { APP_NAME, APP_TAGLINE, APP_TITLE } from '../../../../../shared/app-brand'
 
 const REPOSITORY_URL = 'https://github.com/Wxw-Gu/TraceMemo'
 const RELEASES_URL = `${REPOSITORY_URL}/releases`
@@ -65,7 +66,7 @@ export function AboutPage({
       <header className="settings-page-header">
         <div>
           <h1>关于</h1>
-          <p>TraceMemo（迹忆）本地优先、可追溯的 AI 微信知识与分析工作台。</p>
+          <p>{APP_TITLE}</p>
         </div>
       </header>
       <div className="settings-page-scroll">
@@ -73,7 +74,8 @@ export function AboutPage({
           <section className="settings-card about-identity-card">
             <div>
               <span className="settings-card-kicker">当前版本</span>
-              <strong>TraceMemo（迹忆）</strong>
+              <strong>{APP_NAME}</strong>
+              <p className="text-sm text-muted-foreground">{APP_TAGLINE}</p>
               <small>v{update.currentVersion}</small>
             </div>
             <a href={REPOSITORY_URL} target="_blank" rel="noreferrer">
@@ -107,7 +109,7 @@ export function AboutPage({
               ) : (
                 <span>
                   {update.status === 'downloaded' ? (
-                    `更新将在重启 TraceMemo 后生效。${update.isSimulation ? ' 当前为开发模拟模式。' : ''}`
+                    `更新将在重启 NearCast 后生效。${update.isSimulation ? ' 当前为开发模拟模式。' : ''}`
                   ) : update.status === 'available' && update.delivery === 'release-page' ? (
                     <span className="grid gap-1">
                       <span>当前版本：v{update.currentVersion}</span>

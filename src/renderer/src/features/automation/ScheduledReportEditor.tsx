@@ -270,7 +270,7 @@ export function ScheduledReportEditor({
               <Input
                 aria-label="定时日报任务名称"
                 value={draft.name}
-                placeholder="例如：TraceMemo 每日晚报"
+                placeholder="例如：NearCast 每日晚报"
                 onChange={(event) => patch({ name: event.target.value })}
               />
             </div>
@@ -468,7 +468,7 @@ export function ScheduledReportEditor({
 
             <p className="automation-editor-footnote">
               微信数据库和聊天记录默认从本机读取。所选内容将发送至你配置的模型服务进行处理，
-              TraceMemo 本身不额外保存或转发内容。
+              NearCast 本身不额外保存或转发内容。
             </p>
           </section>
         </div>

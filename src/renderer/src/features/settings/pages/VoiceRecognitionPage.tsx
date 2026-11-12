@@ -478,10 +478,10 @@ export function VoiceRecognitionPage({
                     onValueChange={(value) => setConversationCategory(value as 'group' | 'user')}
                   >
                     <TabsList aria-label="会话类别">
-                      <TabsTrigger value="group">
+                      <TabsTrigger aria-controls="voice-conversation-results" value="group">
                         群聊 {contacts.filter((contact) => contact.type === 'group').length}
                       </TabsTrigger>
-                      <TabsTrigger value="user">
+                      <TabsTrigger aria-controls="voice-conversation-results" value="user">
                         联系人 {contacts.filter((contact) => contact.type === 'user').length}
                       </TabsTrigger>
                     </TabsList>
@@ -497,7 +497,7 @@ export function VoiceRecognitionPage({
                   />
                 </div>
 
-                <div className="voice-conversation-list" aria-label="可转写会话">
+                <div id="voice-conversation-results" role="tabpanel" className="voice-conversation-list" aria-label="可转写会话">
                   {visibleContacts.map((contact) => {
                     const count = conversationSummaries[contact.md5]
                     const selected = selectedConversationIds.includes(contact.md5)

@@ -122,7 +122,7 @@ export function MessageInsertSwitches(): React.JSX.Element {
   /** 把结果里的失败原因翻成人话；native code 只进日志。 */
   const humanize = React.useCallback((result: MsgInsertApplyResult): string => {
     const status = result.status
-    if (result.errorCode === 'HELPER_NOT_FOUND') return '缺少写入组件，请重新安装或更新 TraceMemo'
+    if (result.errorCode === 'HELPER_NOT_FOUND') return '缺少写入组件，请重新安装或更新 NearCast'
     if (result.errorCode === 'DATABASE_UNAVAILABLE') return '微信数据库未连接'
     if (result.errorCode === 'NO_TARGET_ROOMS') return '没有可作用的目标会话'
     if (status && status.failedShards > 0) {

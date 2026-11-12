@@ -159,10 +159,20 @@ export function PersonalWechatWindowsSendDialog({
         return
       }
       if (response.postfixError) {
-        setSendError(`日报图片已发送，但${response.postfixError}`)
-        setSendSuccess('日报图片发送成功')
+        setSendError(`日报图片已提交，但${response.postfixError}`)
+        setSendSuccess(
+          response.deliveryStatus === 'accepted'
+            ? '日报图片已提交微信，送达请查看客户端'
+            : '日报图片发送成功'
+        )
       } else {
-        setSendSuccess(postfixText.trim() ? '日报图片和后置词发送成功' : '日报图片发送成功')
+        setSendSuccess(
+          response.deliveryStatus === 'accepted'
+            ? '已提交微信，送达请查看客户端'
+            : postfixText.trim()
+              ? '日报图片和后置词发送成功'
+              : '日报图片发送成功'
+        )
       }
       setMessages((current) => [
         ...current,

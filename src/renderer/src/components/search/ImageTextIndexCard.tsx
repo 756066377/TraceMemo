@@ -226,7 +226,7 @@ export function ImageTextIndexCard({ dbReady, onNotice }: ImageTextIndexCardProp
             <div className="ai-search-knowledge-row">
               <span className="ai-search-knowledge-label">处理范围</span>
               <Select value={rangeDays} onValueChange={setRangeDays}>
-                <SelectTrigger data-testid="image-text-index-range" className="h-6 w-[86px] text-[10px]">
+                <SelectTrigger aria-label="图片索引处理范围" data-testid="image-text-index-range" className="h-6 w-[86px] text-[10px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -496,7 +496,7 @@ export function ImageTextIndexCard({ dbReady, onNotice }: ImageTextIndexCardProp
               。
             </p>
             <p>
-              建立后，TraceMemo 会在本机读取这些图片中的文字，以后可以在「问问微信」里搜索截图、
+              建立后，NearCast 会在本机读取这些图片中的文字，以后可以在「问问微信」里搜索截图、
               报价图、公告截图等图片里的文字，并按结果回到对应的原始图片消息。
             </p>
             <p>识别过程：</p>

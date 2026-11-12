@@ -81,7 +81,7 @@ export function useEvidenceCollection({ onOpenEvidence }: UseEvidenceCollectionO
   useEffect(() => {
     if (evidenceFlash.index < 0) return
     evidenceCardRefs.current.get(evidenceFlash.index)?.scrollIntoView({
-      behavior: 'smooth',
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
       block: 'nearest'
     })
   }, [evidenceFlash])

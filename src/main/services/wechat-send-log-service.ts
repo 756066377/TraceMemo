@@ -25,6 +25,7 @@ function sanitizeEntry(entry: WechatSendLogEntry): WechatSendLogEntry {
     to: String(entry.to ?? ''),
     type: entry.type,
     status: entry.status,
+    ...(entry.delivery_status === 'accepted' ? { delivery_status: 'accepted' as const } : {}),
     ...(entry.msg_preview ? { msg_preview: entry.msg_preview } : {}),
     ...(entry.msg_hash ? { msg_hash: entry.msg_hash } : {}),
     ...(entry.account_id ? { account_id: entry.account_id } : {}),
@@ -72,6 +73,7 @@ export class WechatSendLogService {
     type: WechatSendType
     msg: string
     status: WechatSendStatus
+    delivery_status?: 'accepted'
     timestamp: number
     duration_ms?: number
     account_id?: string
@@ -85,6 +87,7 @@ export class WechatSendLogService {
       to: input.to,
       type: input.type,
       status: input.status,
+      ...(input.delivery_status ? { delivery_status: input.delivery_status } : {}),
       ...(preview ? { msg_preview: preview } : {}),
       msg_hash: this.hashMessage(input.msg),
       ...(input.account_id ? { account_id: input.account_id } : {}),

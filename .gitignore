@@ -40,3 +40,7 @@ debug-originals
 
 # 本机编译的 hook 产物，不入库。
 /build/wechat-hook/
+
+# 本地验证与宣传图产物目录，不入库。
+/output/
+/Lightvela.png

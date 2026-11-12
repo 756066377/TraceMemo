@@ -96,7 +96,7 @@ export function ScheduledReportRuleList({
         ) : rules.length === 0 ? (
           <div className="automation-empty-card">
             <p>还没有定时日报</p>
-            <p>创建一条自动化，让 TraceMemo 在指定时间生成并发送日报。</p>
+            <p>创建一条自动化，让 NearCast 在指定时间生成并发送日报。</p>
             <Button onClick={onCreate}>+ 新建定时日报</Button>
           </div>
         ) : (

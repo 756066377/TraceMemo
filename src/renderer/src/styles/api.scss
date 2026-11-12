@@ -172,7 +172,7 @@
   gap: 10px;
   margin-top: 16px;
   padding: 10px 12px;
-  border: 1px solid hsl(var(--tm-border-subtle));
+  border: 1px solid var(--tm-border-subtle);
   border-radius: var(--wxex-radius-md);
   background: var(--wxex-bg-sidebar);
   color: var(--wxex-text-secondary);
@@ -187,7 +187,7 @@
 .api-introduction {
   margin-top: 24px;
   padding: 18px 20px;
-  border: 1px solid hsl(var(--tm-border-subtle));
+  border: 1px solid var(--tm-border-subtle);
   border-radius: var(--wxex-radius-lg);
   background: var(--wxex-bg-elevated);
 }
@@ -202,7 +202,7 @@
   justify-content: space-between;
   gap: 10px;
   padding: 12px;
-  border: 1px dashed hsl(var(--tm-border-subtle));
+  border: 1px dashed var(--tm-border-subtle);
   border-radius: var(--wxex-radius-md);
   color: var(--wxex-text-secondary);
   font: 12px/18px var(--wxex-font);
@@ -210,7 +210,7 @@
 .api-flow span,
 .api-flow strong {
   padding: 7px 10px;
-  border: 1px solid hsl(var(--tm-border-subtle));
+  border: 1px solid var(--tm-border-subtle);
   border-radius: 5px;
   background: var(--wxex-bg-elevated);
   white-space: nowrap;
@@ -230,7 +230,7 @@
 .skill-install-flow {
   margin-top: 26px;
   padding: 18px 20px;
-  border: 1px solid hsl(var(--tm-border-subtle));
+  border: 1px solid var(--tm-border-subtle);
   border-radius: var(--wxex-radius-lg);
   background: var(--wxex-bg-elevated);
 }
@@ -262,7 +262,7 @@
   width: 24px;
   height: 24px;
   place-items: center;
-  border: 1px solid hsl(var(--tm-border-subtle));
+  border: 1px solid var(--tm-border-subtle);
   border-radius: 50%;
   background: var(--wxex-bg-elevated);
   font: 700 12px/1 var(--wxex-font);
@@ -271,7 +271,7 @@
 .skill-flow-steps > section.done > b {
   border-color: var(--wxex-brand);
   background: var(--wxex-brand);
-  color: #fff;
+  color: var(--color-primary-content);
 }
 .skill-flow-steps h3 {
   margin: 1px 0 5px;
@@ -291,7 +291,7 @@
 }
 .api-skill-details {
   margin-top: 16px;
-  border: 1px solid hsl(var(--tm-border-subtle));
+  border: 1px solid var(--tm-border-subtle);
   border-radius: var(--wxex-radius-md);
   background: var(--wxex-bg-elevated);
 }
@@ -331,7 +331,7 @@
 .api-endpoint-table {
   margin-top: 12px;
   overflow: hidden;
-  border: 1px solid hsl(var(--tm-border-subtle));
+  border: 1px solid var(--tm-border-subtle);
   border-radius: var(--wxex-radius-md);
   background: var(--wxex-bg-elevated);
 }
@@ -350,7 +350,7 @@
 }
 .api-endpoint-row {
   min-height: 54px;
-  border-top: 1px solid hsl(var(--tm-border-subtle));
+  border-top: 1px solid var(--tm-border-subtle);
   color: var(--wxex-text-secondary);
   font: 12px/18px var(--wxex-font);
 }
@@ -387,7 +387,7 @@
   gap: 10px;
   margin: 12px 0;
   padding: 10px 12px;
-  border: 1px solid hsl(var(--tm-border-subtle));
+  border: 1px solid var(--tm-border-subtle);
   border-radius: var(--wxex-radius-md);
   background: var(--wxex-bg-sidebar);
   overflow: hidden;
@@ -428,7 +428,7 @@
 .api-inline-error {
   margin: 10px 0 0;
   padding: 8px 10px;
-  border: 1px solid rgba(200, 90, 90, 0.35);
+  border: 1px solid color-mix(in srgb, var(--wxex-danger) 35%, transparent);
   border-radius: var(--wxex-radius-sm);
   background: color-mix(in srgb, var(--wxex-danger) 10%, var(--wxex-bg-elevated));
   color: var(--wxex-danger);
@@ -505,7 +505,7 @@
   overflow-wrap: anywhere;
   margin: 10px 0;
   padding: 9px 10px;
-  border: 1px solid hsl(var(--tm-border-subtle));
+  border: 1px solid var(--tm-border-subtle);
   border-radius: var(--wxex-radius-sm);
   background: var(--wxex-bg-subtle);
   color: var(--wxex-text-primary);
@@ -533,8 +533,8 @@
   margin: 10px 0 8px;
   padding: 10px;
   border-radius: var(--wxex-radius-sm);
-  background: #1f2824;
-  color: #cde7dc;
+  background: var(--color-neutral);
+  color: var(--wxex-brand-soft);
   font:
     11px/16px ui-monospace,
     monospace;

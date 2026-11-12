@@ -229,6 +229,15 @@ describe('WechatSendGateway', () => {
     expect(log.list()[0].error_code).toBe('UNSUPPORTED_TYPE')
   })
 
+  it('接口已接受不等于送达，统一返回和落盘日志保留提交状态', async () => {
+    const { gateway, log } = createGateway({
+      sendPersonal: async () => ({ ...okResult, deliveryStatus: 'accepted' })
+    })
+    const result = await gateway.send({ to: 'wxid_test', type: 'text', msg: 'hello' })
+    expect(result).toMatchObject({ success: true, delivery_status: 'accepted' })
+    expect(log.list()[0]).toMatchObject({ delivery_status: 'accepted' })
+  })
+
   it('sendPersonal 保留既有返回契约，并把同一次发送记入 Send Log', async () => {
     const received: unknown[] = []
     const { gateway, log } = createGateway({

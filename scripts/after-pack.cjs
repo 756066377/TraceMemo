@@ -4,6 +4,7 @@ const { execFileSync } = require('node:child_process')
 const path = require('node:path')
 const asar = require('@electron/asar')
 const { readBinaryArchitectures } = require('./binary-arch.cjs')
+const { applyWindowsBranding } = require('./windows-branding.cjs')
 
 const REQUIRED_RUNTIME_PACKAGES = [
   '@electron-toolkit/preload',
@@ -535,6 +536,7 @@ exports.default = async function afterPack(context) {
   pruneIntelMacKeyTool(runtimeResources, context.electronPlatformName, arch)
   pruneForeignArchConnectors(runtimeResources, context.electronPlatformName, arch)
   pruneForeignArchNativeRuntimes(runtimeResources, context.electronPlatformName, arch)
+  await applyWindowsBranding(context)
 
   if (context.electronPlatformName === 'darwin') {
     execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', ffmpegPath], {

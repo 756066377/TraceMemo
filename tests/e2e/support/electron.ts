@@ -20,6 +20,7 @@ export async function launchTestApp(
     templateMarket?: 'off' | 'fixture'
     userData?: string
     largeContacts?: number
+    largeMessages?: number
     corruptCache?: boolean
     aiFailure?: string
     updateSimulation?: boolean
@@ -51,6 +52,7 @@ export async function launchTestApp(
       WXE_E2E_USER_DATA: userData,
       WXE_E2E_MODE: options.mode || 'connected',
       WXE_E2E_LARGE_CONTACTS: String(options.largeContacts || 0),
+      WXE_E2E_LARGE_MESSAGES: String(options.largeMessages || 0),
       WXE_E2E_CORRUPT_CACHE: options.corruptCache ? '1' : '0',
       WXE_E2E_AI_FAILURE: options.aiFailure || '',
       WXE_E2E_UPDATE_SIMULATION: options.updateSimulation ? '1' : '0',

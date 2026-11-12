@@ -111,7 +111,7 @@ export function AgentHubWorkspace({
     <div className="agent-hub-workspace">
       <header className="agent-hub-header">
         <div>
-          <div className="agent-hub-eyebrow">TraceMemo</div>
+          <div className="agent-hub-eyebrow">NearCast</div>
           <h1>Agent Hub</h1>
           <p>让微信机器人安全调用聊天数据与 AI 能力。</p>
         </div>
@@ -204,7 +204,7 @@ export function AgentHubWorkspace({
         <aside className="agent-hub-card agent-hub-capability-card">
           <span className="agent-hub-card-kicker">已启用能力</span>
           <h2>微信数据助手</h2>
-          <p>机器人通过本机 Agent Hub 调用 TraceMemo，不向公网暴露数据库。</p>
+          <p>机器人通过本机 Agent Hub 调用 NearCast，不向公网暴露数据库。</p>
           <div className="agent-hub-example">
             <span>支持自然语言，可以这样问</span>
             <strong>“最近 5 条消息是谁？”</strong>

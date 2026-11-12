@@ -11,7 +11,7 @@ test('REPORT-TEMPLATE-MARKET-E2E-01 reads, installs, restores, renders, and swit
   const outputDir = mkdtempSync(join(tmpdir(), 'tracememo-template-market-output-'))
   const launch = (): ReturnType<typeof electron.launch> =>
     electron.launch({
-      args: [resolve('out/main/reportTemplateTest.js')],
+      args: [resolve('out/main/reportTemplateTest.js'), '--force-device-scale-factor=1'],
       env: {
         ...process.env,
         TRACEMEMO_TEMPLATE_TEST_USER_DATA: userData,

@@ -49,12 +49,16 @@ import type {
   AIConnectionTestResult,
   AIProviderConfig,
   AIProviderListResult,
+  AIProviderProbeRequest,
+  AIProviderProbeResult,
   AIRuntimeModelConfig,
   AIVisionRuntimeConfig,
   AIVisionTestRequest,
   AIVisionTestResult,
   LegacyAIConfig
 } from '../shared/ai-provider'
+import type { AIProviderAdvisorInfo, AIProviderAdvisorReport } from '../shared/ai-provider-advisor'
+import type { AIProviderTemplate } from '../shared/ai-provider-catalog'
 import type {
   ImageAnalysisRequest,
   ImageAnalysisResponse,
@@ -76,6 +80,9 @@ import type {
   AgentHubConversationSummary
 } from '../shared/agent-hub-conversation'
 import type {
+  PersonalWechatEndpointScanResult,
+  WechatHookComponentStatus,
+  WechatHookInstallResult,
   PersonalWechatGeneratedTtsVoiceRequest,
   PersonalWechatGeneratedTtsVoiceResult,
   PersonalWechatSendRequest,
@@ -163,6 +170,8 @@ import type {
   SynthesizeTextToSpeechResult,
   TextToSpeechSettingsResult
 } from '../shared/text-to-speech'
+import type { ReplyAssistantRequest, ReplyAssistantResult } from '../shared/reply-assistant'
+import type { RelationshipProfile, RelationshipProfileInput } from '../shared/relationship-profile'
 
 export type ParsedContent =
   | { type: 'text'; content: string }
@@ -382,7 +391,21 @@ declare global {
         }
         error?: string
       }>
+      /** Windows-only: 聊天原文由主进程从本地微信数据库读取。 */
+      analyzeReply: (request: ReplyAssistantRequest) => Promise<ReplyAssistantResult>
+      getRelationshipProfile: (userMd5: string) => Promise<RelationshipProfile>
+      listRelationshipProfiles: () => Promise<RelationshipProfile[]>
+      saveRelationshipProfile: (input: RelationshipProfileInput) => Promise<{
+        success: boolean
+        profile?: RelationshipProfile
+        error?: string
+      }>
+      removeRelationshipProfile: (userMd5: string) => Promise<{ success: boolean; error?: string }>
       listAIProviders: () => Promise<AIProviderListResult>
+      getAIProviderCatalog: () => Promise<AIProviderTemplate[]>
+      getAIProviderAdvisor: () => Promise<AIProviderAdvisorInfo>
+      previewAIProviderSetup: (provider: AIProviderConfig) => Promise<AIProviderAdvisorReport>
+      probeAIProviderModels: (request: AIProviderProbeRequest) => Promise<AIProviderProbeResult>
       getAIRuntimeConfig: () => Promise<AIRuntimeModelConfig>
       getAIVisionRuntimeConfig: () => Promise<AIVisionRuntimeConfig>
       getAiSearchProviderStatus: () => Promise<AiSearchProviderStatus>
@@ -753,6 +776,24 @@ declare global {
       getPersonalWechatSenderStatus: () => Promise<PersonalWechatSenderStatus>
       getPersonalWechatSendCapability: () => Promise<PersonalWechatSendCapability>
       checkPersonalWechatSenderStatus: (port?: string) => Promise<PersonalWechatSenderStatus>
+      scanPersonalWechatEndpoint: () => Promise<PersonalWechatEndpointScanResult>
+      getWechatHookComponentStatus: () => Promise<WechatHookComponentStatus>
+      startWechatWithHook: () => Promise<WechatHookInstallResult>
+      importWechatHookDll: () => Promise<{ success: boolean; error?: string; canceled?: boolean }>
+      pickAndInjectWechatHook: (options?: {
+        force?: boolean
+      }) => Promise<WechatHookInstallResult & { canceled?: boolean }>
+      installWechatHook: (options?: { force?: boolean }) => Promise<WechatHookInstallResult>
+      uninstallWechatHook: () => Promise<WechatHookInstallResult>
+      injectRunningWechatHook: (options?: { force?: boolean }) => Promise<{
+        success: boolean
+        error?: string
+        steps: string[]
+        port?: string
+      }>
+      openWechatHookReleasePage: () => Promise<{ success: boolean }>
+      openWechatHookWechatDownload: () => Promise<{ success: boolean }>
+      closeWechatForHook: () => Promise<{ success: boolean; error?: string }>
       checkPersonalWechatVoiceEncodingEnvironment: () => Promise<PersonalWechatVoiceEncodingEnvironment>
       installPersonalWechatPilk: () => Promise<PersonalWechatVoiceEncodingEnvironmentResult>
       openPersonalWechatVoicePythonDownload: () => Promise<{ success: boolean; error?: string }>
@@ -769,9 +810,7 @@ declare global {
         ruleId: string
       ) => Promise<{ success: boolean; error?: string; data?: ScheduledRuleRunOutcome }>
       /** 定时日报：旧执行记录**只读存档**（旧记录无法无损转换，原样展示）。 */
-      listScheduledReportLegacyExecutions: (
-        ruleId?: string
-      ) => Promise<ScheduledReportExecution[]>
+      listScheduledReportLegacyExecutions: (ruleId?: string) => Promise<ScheduledReportExecution[]>
       /** 定时日报：微信异常通知开关与能力检测。 */
       getScheduledReportNotificationSettings: () => Promise<ScheduledReportNotificationSettings>
       getScheduledReportNotificationCapability: () => Promise<ScheduledReportNotificationCapability>

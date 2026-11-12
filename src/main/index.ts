@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { APP_TITLE } from '../shared/app-brand'
 import {
   isLegacyMigrationHelper,
   isUserDataIsolated,
@@ -47,6 +48,7 @@ import {
 } from './report-history-service'
 import { reportTemplateService } from './report-template-service'
 import { registerReportTemplateIpc } from './report-template-ipc'
+import { registerReplyAssistantIpc } from './reply-assistant-ipc'
 import type { GroupReportRenderSnapshotExportRequest } from '../shared/group-report'
 import type {
   SaveGeneratedReportRequest,
@@ -57,6 +59,7 @@ import type {
   AIChatRequestOptions,
   AiSearchExternalAuthorizationRequest,
   AIProviderConfig,
+  AIProviderProbeRequest,
   AIVisionTestRequest,
   LegacyAIConfig
 } from '../shared/ai-provider'
@@ -379,17 +382,22 @@ async function cleanupLegacyRecallResidueOnStart(): Promise<void> {
 }
 import { wechatActionLogService } from './services/wechat-action-log-service'
 import { toPersonalWechatSendResult, wechatActionGateway } from './services/wechat-action-gateway'
-import { personalWechatSendService } from './services/personal-wechat-send-service'
+import {
+  personalWechatSendService,
+  scanWindowsWechatEndpoint
+} from './services/personal-wechat-send-service'
 import { macWechatRuntimeManager } from './services/mac-wechat-runtime-manager'
 import { getPersonalWechatSendCapability } from './services/personal-wechat-capability-service'
 import { scheduledReportService } from './services/scheduled-report-service'
 import { personalWechatVoiceEnvironmentService } from './services/personal-wechat-voice-environment-service'
+import { wechatHookComponentService } from './services/wechat-hook-component-service'
 import type {
   PersonalWechatGeneratedTtsVoiceRequest,
   PersonalWechatSendRequest,
   PersonalWechatSendResult,
   PersonalWechatSenderStatus
 } from '../shared/personal-wechat'
+import { findResource } from './resource-paths'
 import { isTruthyDebugFlag } from '../shared/debug-flags'
 import { TextToSpeechSettingsService } from './services/text-to-speech-settings-service'
 import type {
@@ -816,6 +824,7 @@ function createWindow(): void {
     workAreaSize.height
   )
   const mainWindow = new BrowserWindow({
+    title: APP_TITLE,
     width: initialWidth,
     height: initialHeight,
     minWidth: 960,
@@ -862,7 +871,7 @@ function createWindow(): void {
     void dialog
       .showMessageBox(mainWindow, {
         type: 'question',
-        title: '关闭 TraceMemo',
+        title: '关闭 NearCast',
         message: '请选择关闭方式',
         detail: '你可以将窗口隐藏到系统托盘，或退出整个应用进程。',
         buttons: ['最小化到系统托盘', '关闭进程', '取消'],
@@ -935,7 +944,7 @@ app.whenReady().then(async () => {
         scope: 'app-data-migration',
         message: migration.assessment.selection.legacyConflict
           ? '检测到两个独立的 legacy userData，已按兼容优先级选择 WechatExplorer 作为迁移源'
-          : 'TraceMemo 数据身份检查完成',
+          : 'NearCast 数据身份检查完成',
         details: {
           action: migration.action,
           reason: migration.assessment.reason,
@@ -965,15 +974,15 @@ app.whenReady().then(async () => {
     appLogger.write({
       level: 'error',
       scope: 'app-data-migration',
-      message: 'TraceMemo 数据迁移初始化失败',
+      message: 'NearCast 数据迁移初始化失败',
       details: { error: error instanceof Error ? error.message : String(error) }
     })
     await dialog.showMessageBox({
       type: 'warning',
-      title: 'TraceMemo 数据迁移',
+      title: 'NearCast 数据迁移',
       message: '旧数据迁移未能启动',
       detail:
-        '旧目录没有被修改或删除。请保留 WechatExplorer 数据并重新启动 TraceMemo；旧 API Token 不会被静默替换。',
+        '旧目录没有被修改或删除。请保留 WechatExplorer 数据并重新启动 NearCast；旧 API Token 不会被静默替换。',
       buttons: ['好']
     })
   }
@@ -1201,11 +1210,11 @@ app.whenReady().then(async () => {
       return new Response('Media unavailable', { status: 500 })
     }
   })
-  console.log(`TraceMemo main build: ${BUILD_MARK}`)
+  console.log(`NearCast main build: ${BUILD_MARK}`)
   appLogger.write({
     level: 'info',
     scope: 'lifecycle',
-    message: 'TraceMemo 启动',
+    message: 'NearCast 启动',
     details: { build: BUILD_MARK, platform: process.platform, version: app.getVersion() }
   })
   process.on('uncaughtException', (error) => {
@@ -1231,6 +1240,7 @@ app.whenReady().then(async () => {
   // Create the renderer before native WCDB bootstrap so startup progress is visible immediately.
   await reportTemplateService.recover()
   registerReportTemplateIpc()
+  registerReplyAssistantIpc(aiProviderService)
   createWindow()
   wcdbBootstrapPromise = bootstrapWcdbNativeAsync().then(() => {
     console.log('[WCDB4] async bootstrap complete')
@@ -1642,7 +1652,7 @@ app.whenReady().then(async () => {
       }
     }
   )
-  // 日报等系统动作仍复用现有发送服务；普通聊天不再暴露这个入口。
+  // 日报、档案和 AI 回复草稿共用同一个发送入口；所有发送仍统一经过 WechatActionGateway。
   ipcMain.handle('wechat-personal:send', async (_, request: PersonalWechatSendRequest) => {
     // 项目规则：**所有发送都必须经过 WechatActionGateway**（审计 + 幂等 + 同一个 Send Log）。
     // 手动发送在改造前从这里直连 `PersonalWechatSendService`，于是完全不留痕 ——
@@ -1761,7 +1771,8 @@ app.whenReady().then(async () => {
    * 刻意不返回资源密钥、完整 XML、fileid 或任何 CDN 凭据。
    */
   ipcMain.handle(
-    'image:getDebugInfo',    async (_, request: ImageDebugInfoRequest): Promise<ImageDebugInfoResult> => {
+    'image:getDebugInfo',
+    async (_, request: ImageDebugInfoRequest): Promise<ImageDebugInfoResult> => {
       try {
         const service = ensureImageDecryptService()
         const self = chat.getSelfAccountInfo()
@@ -1782,7 +1793,9 @@ app.whenReady().then(async () => {
 
         // 复用真实选图逻辑；找不到就是 null，不根据文件名猜。
         const filePath = service
-          ? service.findImageFile(md5 || undefined, datName || undefined, { sessionId: sessionId || undefined })
+          ? service.findImageFile(md5 || undefined, datName || undefined, {
+              sessionId: sessionId || undefined
+            })
           : null
         const quality = filePath ? toDebugQuality(imageFileQuality(filePath)) : 'unknown'
         const relativePath =
@@ -2452,6 +2465,14 @@ app.whenReady().then(async () => {
   )
 
   ipcMain.handle('ai:listProviders', () => aiProviderService.list())
+  ipcMain.handle('ai:getProviderCatalog', () => aiProviderService.getProviderCatalog())
+  ipcMain.handle('ai:getProviderAdvisor', () => aiProviderService.getAdvisorInfo())
+  ipcMain.handle('ai:previewProviderSetup', (_, provider: AIProviderConfig) =>
+    aiProviderService.previewSetup(provider)
+  )
+  ipcMain.handle('ai:probeProviderModels', (_, request: AIProviderProbeRequest) =>
+    aiProviderService.probeModels(request)
+  )
   ipcMain.handle('ai:getRuntimeConfig', () => aiProviderService.getRuntimeConfig())
   ipcMain.handle('ai:getVisionRuntimeConfig', () => aiProviderService.getVisionRuntimeConfig())
   ipcMain.handle('ai:saveProvider', (_, provider: AIProviderConfig) =>
@@ -3216,6 +3237,55 @@ app.whenReady().then(async () => {
   ipcMain.handle('wechat-personal:checkStatus', (_, port?: string) =>
     personalWechatSendService.checkWindowsStatus(port)
   )
+  // 扫描本机监听端口，找出符合 /getLoginInfo 契约的发送接口（只读探测，不发消息）。
+  ipcMain.handle('wechat-personal:scanEndpoint', () => scanWindowsWechatEndpoint())
+  // Hook 组件（version.dll 代理）：状态、导入、注入、卸载、退出微信。
+  ipcMain.handle('wechat-hook:getStatus', () => wechatHookComponentService.getStatus())
+  ipcMain.handle('wechat-hook:start', () => wechatHookComponentService.startWithHook())
+  ipcMain.handle('wechat-hook:importFromDialog', async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) return { success: false, error: '无法打开文件选择器' }
+    const picked = await dialog.showOpenDialog(window, {
+      title: '选择 WeChat-Hook 的 version.dll',
+      properties: ['openFile'],
+      filters: [{ name: 'DLL', extensions: ['dll'] }]
+    })
+    if (picked.canceled || !picked.filePaths[0]) return { success: false, canceled: true }
+    return wechatHookComponentService.importDll(picked.filePaths[0])
+  })
+  // 一步注入：选完文件直接写进微信目录，不再要求用户点第二次。
+  ipcMain.handle('wechat-hook:pickAndInstall', async (event, options?: { force?: boolean }) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) return { success: false, error: '无法打开文件选择器' }
+    const picked = await dialog.showOpenDialog(window, {
+      title: '选择与当前微信版本匹配的 version.dll',
+      properties: ['openFile'],
+      filters: [{ name: 'DLL', extensions: ['dll'] }]
+    })
+    if (picked.canceled || !picked.filePaths[0]) return { success: false, canceled: true }
+    return wechatHookComponentService.importAndInstall(picked.filePaths[0], options || {})
+  })
+  ipcMain.handle('wechat-hook:install', (_, options?: { force?: boolean }) =>
+    wechatHookComponentService.install(options || {})
+  )
+  ipcMain.handle('wechat-hook:uninstall', () => wechatHookComponentService.uninstall())
+  // 注入到正在运行的微信进程（微信 4.1.15+ 不再加载安装目录里的 version.dll）。
+  ipcMain.handle('wechat-hook:injectRunning', (_, options?: { force?: boolean }) =>
+    wechatHookComponentService.injectRunningWechat(options || {})
+  )
+  // 组件下载页：微信小版本对不上时，用户自己去取对应版本的 version.dll。
+  ipcMain.handle('wechat-hook:openReleasePage', async () => {
+    await shell.openExternal('https://github.com/aixed/WeChat-Hook/releases')
+    return { success: true }
+  })
+  // 保留旧 IPC 名称兼容，打开当前配套组件说明，避免误下载旧版微信。
+  ipcMain.handle('wechat-hook:openWechatDownload', async () => {
+    const guide = findResource('wechat-hook/README.md')
+    if (!guide) return { success: false, error: '适配说明缺失，请重新准备组件' }
+    const error = await shell.openPath(guide)
+    return { success: !error, ...(error ? { error } : {}) }
+  })
+  ipcMain.handle('wechat-hook:closeWechat', () => wechatHookComponentService.closeWechat())
   ipcMain.handle('wechat-personal:checkVoiceEnvironment', () =>
     personalWechatVoiceEnvironmentService.check()
   )
@@ -3357,7 +3427,7 @@ app.on('before-quit', (event) => {
       /*
        * Deliberately do NOT stop the macOS native runtime here.
        *
-       * The host is designed to outlive TraceMemo ("保留发送能力进程"): keeping
+       * The host is designed to outlive NearCast ("保留发送能力进程"): keeping
        * it alive preserves the bound frida session, so relaunching the app —
        * including every dev-mode restart — re-adopts it and works immediately
        * instead of forcing the user to bind WeChat again.
@@ -3413,7 +3483,7 @@ function buildTrayMenu(): Menu {
     },
     { type: 'separator' },
     {
-      label: '退出 TraceMemo',
+      label: '退出 NearCast',
       click: () => {
         tray?.destroy()
         tray = null
@@ -3433,7 +3503,7 @@ function setupTray(): void {
       nativeImage
     )
     tray = new Tray(trayImage)
-    tray.setToolTip('TraceMemo')
+    tray.setToolTip('NearCast')
     // macOS may show a Tray context menu on a primary click when it is set
     // directly on the Tray. Keep the menu for an explicit secondary click so
     // the primary click only restores the main window.

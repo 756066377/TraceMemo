@@ -13,7 +13,7 @@ import {
   writeFileSync
 } from 'fs'
 import { tmpdir } from 'os'
-import { execFileSync } from 'child_process'
+import { createRequire } from 'node:module'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ExportTarget } from '../../src/shared/export'
 import type { Message } from '../../src/shared/types'
@@ -1431,7 +1431,10 @@ describe('media export flow', () => {
     expect(second.outputPath).toBe(first.outputPath)
     expect(firstSize).toBeGreaterThan(0)
     expect(readFileSync(second.outputPath!).subarray(0, 2).toString()).toBe('PK')
-    const entries = execFileSync('unzip', ['-Z1', second.outputPath!], { encoding: 'utf8' })
+    const unzip = createRequire(import.meta.url)('unzipper') as {
+      Open: { file: (path: string) => Promise<{ files: { path: string }[] }> }
+    }
+    const entries = (await unzip.Open.file(second.outputPath!)).files.map((entry) => entry.path).join('\n')
     const htmlPath = join(state.documents, 'TraceMemo', '导出', 'zip-fixture', 'index.html')
     const archive = readArchive(htmlPath)
     expect(entries).toContain('zip-fixture/index.html')

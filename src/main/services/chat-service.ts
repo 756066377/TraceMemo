@@ -38,6 +38,7 @@ export type ListMessagesCaller =
   | 'group-monitor'
   | 'archive'
   | 'knowledge'
+  | 'reply-assistant'
   | 'unknown'
 
 /** 进程生命周期内单调递增的读取序号，用来把"同一段时间的几次调用"关联起来（不是稳定标识）。 */

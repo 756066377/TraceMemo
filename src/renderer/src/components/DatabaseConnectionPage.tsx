@@ -2,6 +2,8 @@ import React from 'react'
 import type { DatabaseKeyEnvironment, WechatAccountCandidate } from '../../../shared/database-key'
 import { WINDOWS_VC_RUNTIME_DOWNLOAD_URL } from '../../../shared/windows-runtime'
 import { Button, IconButton, Input, Tabs, TabsList, TabsTrigger } from './ui'
+import { APP_NAME, APP_TAGLINE, APP_TITLE } from '../../../shared/app-brand'
+import brandIcon from '../assets/brand-icon.png'
 
 const GUIDE_URL = 'https://github.com/Wxw-Gu/TraceMemo/blob/main/docs/user-guide/getting-started.md'
 
@@ -145,13 +147,13 @@ export function DatabaseConnectionPage({
 
   return (
     <main className="database-login-page">
-      <section className="database-login-brand" aria-label="TraceMemo（迹忆）产品说明">
+      <section className="database-login-brand" aria-label={`${APP_TITLE} 产品说明`}>
         <div className="database-login-brand-content">
           <div className="database-login-logo" aria-hidden="true">
-            <LineIcon name="database" />
+            <img src={brandIcon} alt="" width={56} height={56} />
           </div>
-          <h1>TraceMemo（迹忆）</h1>
-          <p className="database-login-tagline">让 AI 读懂你的微信</p>
+          <h1>{APP_NAME}</h1>
+          <p className="database-login-tagline">{APP_TAGLINE}</p>
           <p className="database-login-description">
             连接成功后，你可以搜索聊天记录、生成群聊日报，并按需使用 AI 分析。
           </p>
@@ -271,7 +273,7 @@ export function DatabaseConnectionPage({
                               isMac ? '确认开始获取密钥。' : '开始后请按页面提示完成系统授权。',
                               isMac
                                 ? '等页面提示可以登录后，立即回到微信点击登录。'
-                                : '正在准备连接组件，请不要关闭微信或 TraceMemo。',
+                                : '正在准备连接组件，请不要关闭微信或 NearCast。',
                               isMac
                                 ? '密钥已获取，请继续验证数据库。'
                                 : '请回到微信完成登录，登录成功后再回来验证。',
@@ -603,7 +605,7 @@ export function DatabaseConnectionPage({
             <Button variant="destructive" size="sm" onClick={onClearKey}>
               清除已保存密钥
             </Button>
-            <span>TraceMemo</span>
+            <span>NearCast</span>
           </div>
         </div>
       </section>

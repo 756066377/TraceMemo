@@ -19,7 +19,7 @@ const makeZip = async (directory: string): Promise<string> => {
       protocolVersion: '1.0',
       kind: 'daily-report',
       id: 'community.github.example.fragment-contract',
-      name: 'Production Fragment Contract 压力模板',
+      name: 'Production Fragment Contract 鍘嬪姏妯℃澘',
       author: { name: 'fixture' },
       templateVersion: '1.0.0',
       interfaceVersion: '1',
@@ -50,7 +50,7 @@ test('REPORT-TEMPLATE-E2E-FRAGMENT-01 protects production avatars and text from 
   const fixtureDir = mkdtempSync(join(tmpdir(), 'tracememo-fragment-contract-fixture-'))
   const launch = () =>
     electron.launch({
-      args: [resolve('out/main/reportTemplateTest.js')],
+      args: [resolve('out/main/reportTemplateTest.js'), '--force-device-scale-factor=1'],
       env: {
         ...process.env,
         TRACEMEMO_TEMPLATE_TEST_USER_DATA: userData,

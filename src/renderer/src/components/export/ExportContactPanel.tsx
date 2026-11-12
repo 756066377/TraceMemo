@@ -176,6 +176,7 @@ export function ExportContactPanel({
             ).map(([value, label]) => (
               <TabsTrigger
                 key={value}
+                aria-controls="export-contact-results"
                 className="w-full data-[state=active]:text-primary"
                 value={value}
               >
@@ -252,7 +253,7 @@ export function ExportContactPanel({
         </div>
       ) : null}
 
-      <div ref={contactListRef} className="export-contact-list min-h-0 flex-1 overflow-auto py-2">
+      <div id="export-contact-results" role="tabpanel" aria-label="聊天筛选结果" ref={contactListRef} className="export-contact-list min-h-0 flex-1 overflow-auto py-2">
         {virtualizeContacts ? (
           <div
             className="relative w-full"

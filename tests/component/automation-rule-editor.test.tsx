@@ -41,7 +41,7 @@ describe('RuleEditorPanel · 回复前等待', () => {
   it('它就在「3 · 触发后执行」里，和动作顺序在同一段', () => {
     renderEditor(createDefaultDailyReportRule(0))
 
-    expect(screen.getByText('命中条件后，TraceMemo 会按下面的顺序依次执行。')).toBeInTheDocument()
+    expect(screen.getByText('命中条件后，NearCast 会按下面的顺序依次执行。')).toBeInTheDocument()
     expect(delayField()).toBeInTheDocument()
     expect(screen.getByText('回复前等待（秒）')).toBeInTheDocument()
   })

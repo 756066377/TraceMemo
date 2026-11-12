@@ -1,0 +1,373 @@
+// Glass is reserved for structural surfaces. Lists remain opaque for stable contrast and scrolling.
+body {
+  background:
+    radial-gradient(
+      ellipse at 8% 0%,
+      color-mix(in srgb, var(--color-primary) 14%, transparent),
+      transparent 54%
+    ),
+    radial-gradient(
+      ellipse at 100% 95%,
+      color-mix(in srgb, var(--tm-brand-glow-secondary) 12%, transparent),
+      transparent 52%
+    ),
+    var(--color-base-200);
+}
+
+.app-shell {
+  gap: 12px;
+  padding: 12px 12px 12px 0;
+  background: transparent;
+}
+
+.tm-glass-panel {
+  border: 1px solid var(--tm-glass-border);
+  border-radius: var(--tm-radius-xl);
+  background: var(--tm-glass-bg);
+  color: var(--color-base-content);
+  box-shadow:
+    inset 0 1px 0 var(--tm-glass-highlight),
+    var(--tm-shadow-surface);
+  backdrop-filter: blur(var(--tm-glass-blur));
+  -webkit-backdrop-filter: blur(var(--tm-glass-blur));
+}
+
+.tm-glass-emphasis {
+  background: var(--tm-glass-emphasis-bg);
+}
+
+.tm-glass-floating {
+  background: var(--tm-glass-floating-bg);
+  backdrop-filter: blur(var(--tm-glass-floating-blur));
+  -webkit-backdrop-filter: blur(var(--tm-glass-floating-blur));
+  box-shadow:
+    inset 0 1px 0 var(--tm-glass-highlight),
+    var(--tm-shadow-popover);
+}
+
+.app-primary-rail {
+  border-radius: 0 16px 16px 0;
+  padding-top: 10px;
+}
+
+.app-shell-main {
+  padding-top: 0;
+  overflow: visible;
+}
+
+.tm-workspace-surface {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+// Workspace containers are transparent; reading surfaces inside retain their semantic fill.
+.tm-workspace-surface > *,
+.report-workspace-shell,
+.report-workspace-body,
+.settings-workspace,
+.ai-search-workspace,
+.export-workspace,
+.api-center-layout {
+  background: transparent;
+}
+
+.conversation-sidebar,
+.settings-sidebar,
+.report-source-sidebar,
+.report-history-sidebar,
+.ai-search-scope-panel,
+.api-runtime-panel {
+  background: var(--tm-glass-emphasis-bg);
+}
+
+.chat-archive-header,
+.chat-status-bar,
+.settings-page-header,
+.ai-search-header,
+.report-workspace-tabs,
+.report-viewer-header,
+.export-config-panel {
+  background: var(--tm-glass-bg);
+}
+
+.wechat-message-list,
+.ai-search-main-scroll,
+.report-canvas,
+.agent-hub-conversation-thread {
+  background: var(--color-base-100);
+}
+
+.message-bubble,
+.quoted-message,
+.settings-card,
+.settings-choice,
+.api-card,
+.automation-card,
+.report-settings-card {
+  background: var(--color-base-100);
+  border-color: var(--color-base-300);
+  color: var(--color-base-content);
+}
+
+.wechat-message-row.mine .message-bubble {
+  background: var(--color-accent);
+  color: var(--color-accent-content);
+  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-base-300));
+}
+
+.settings-page-content,
+.ai-report-scroll {
+  max-width: 1120px;
+}
+
+.settings-card,
+.settings-option-card,
+.tm-glass-panel.dui-card {
+  border-radius: var(--tm-radius-lg);
+}
+
+.tm-glass-panel.dui-card > .dui-card-body {
+  gap: 12px;
+  padding: 20px;
+}
+
+.settings-toggle-list > .dui-card-body {
+  padding: 0;
+  gap: 0;
+}
+
+.tm-overlay {
+  background: var(--tm-scrim);
+  backdrop-filter: blur(4px);
+}
+
+.dui-modal-box {
+  overflow: auto;
+  max-height: calc(100dvh - 48px);
+}
+
+.tm-select-trigger {
+  background: var(--color-base-100);
+  border-color: var(--tm-control-border);
+}
+
+.dui-input:not(:disabled),
+.dui-textarea:not(:disabled),
+[role='checkbox']:not(:disabled):not([data-state='checked']),
+.dui-btn-outline:not(:disabled) {
+  border-color: var(--tm-control-border);
+}
+
+.dui-btn {
+  font-family: inherit;
+  font-weight: 600;
+  text-transform: none;
+}
+
+.dui-btn:active:not(:disabled) {
+  transform: none;
+}
+
+.dui-tab[data-state='active'] {
+  background: var(--color-base-100);
+  color: var(--color-base-content);
+}
+
+.tm-responsive-panel {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tm-responsive-panel > * {
+  width: 100%;
+  min-width: 0;
+}
+
+.tm-panel-launcher {
+  position: absolute;
+  right: 16px;
+  top: 12px;
+  z-index: 5;
+  -webkit-app-region: no-drag;
+}
+
+.report-page,
+.report-center-page,
+.ai-search-grid,
+.export-workspace {
+  position: relative;
+}
+
+.tm-panel-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(640px, calc(100vw - 64px));
+  max-width: 640px;
+  height: min(760px, calc(100dvh - 64px));
+}
+
+.tm-panel-dialog > .tm-responsive-panel {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.tm-panel-dialog .export-preview-panel,
+.tm-panel-dialog .report-task-panel {
+  height: 100%;
+}
+
+.database-login-page,
+.boot-splash {
+  background: transparent;
+  color: var(--color-base-content);
+}
+
+.database-login-brand {
+  background:
+    radial-gradient(
+      ellipse at top,
+      color-mix(in srgb, var(--color-primary) 18%, transparent),
+      transparent 70%
+    ),
+    var(--tm-glass-emphasis-bg);
+  border-right: 1px solid var(--color-base-300);
+}
+
+.database-login-brand :is(h1, p, strong),
+.database-login-brand-footer {
+  color: var(--color-base-content);
+}
+
+.database-login-panel {
+  border: 1px solid var(--tm-glass-border);
+  border-radius: 20px;
+  padding: 28px;
+  background: var(--tm-glass-bg);
+  box-shadow: var(--tm-shadow-floating);
+  backdrop-filter: blur(var(--tm-glass-blur));
+}
+
+.tm-skip-link {
+  position: fixed;
+  left: 100px;
+  top: -100px;
+  z-index: 2000;
+  padding: 8px 16px;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  border-radius: 8px;
+}
+
+.tm-skip-link:focus {
+  top: 12px;
+}
+
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+  scroll-margin: 16px;
+}
+
+:where(input, textarea)[aria-invalid='true'] {
+  border-color: var(--color-error);
+}
+
+@media (min-width: 1280px) {
+  .report-page,
+  .report-center-page {
+    grid-template-columns: 240px minmax(0, 1fr) 280px;
+  }
+
+  .export-workspace {
+    grid-template-columns: 240px minmax(0, 1fr) 300px;
+  }
+
+  .ai-search-grid {
+    grid-template-columns: 210px minmax(0, 1fr) 290px;
+  }
+}
+
+@media (max-width: 1279px) {
+  .app-shell {
+    gap: 8px;
+    padding: 8px 8px 8px 0;
+  }
+
+  .report-page,
+  .report-center-page,
+  .export-workspace,
+  .ai-search-grid {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .report-page > :nth-child(2),
+  .report-center-page > :nth-child(2),
+  .export-workspace > :nth-child(2),
+  .ai-search-grid > .ai-search-main {
+    padding-top: 48px;
+  }
+
+  .settings-sidebar {
+    width: 200px;
+    flex-basis: 200px;
+  }
+
+  .api-center-layout {
+    grid-template-columns: minmax(0, 1fr) 260px;
+  }
+
+  .settings-choice-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-height: 720px) {
+  .app-primary-rail {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .primary-navigation {
+    gap: 2px;
+  }
+
+  .primary-nav-item {
+    height: 46px;
+    min-height: 46px;
+    flex-basis: 46px;
+    gap: 1px;
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .tm-glass-panel,
+  .database-login-panel {
+    background: var(--color-base-100);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .tm-glass-panel,
+  .database-login-panel {
+    background: var(--color-base-100);
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

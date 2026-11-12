@@ -10,6 +10,8 @@
 
 ## AI 与知识库
 
+- [狗头军师：依据、参考资料与回复生成](./concepts/reply-assistant.md)
+
 - [AI Search / 问问微信](./user-guide/ai-search.md)：用自然语言找回记得大意、但不知道在哪个会话里的内容，并查看 Evidence、Citation 和 Search Trace。
 - [本地知识库](./user-guide/knowledge.md)：主动建立本地索引，提升跨会话、跨时间查询的稳定性；也包括在本机识别图片文字、让截图和公告图变得可搜索的「图片文字索引」。
 - [如何核对 AI 的回答来源](./concepts/answer-sources.md)：从来源回到原始消息，检查上下文和覆盖范围。

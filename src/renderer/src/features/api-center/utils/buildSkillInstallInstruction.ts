@@ -36,7 +36,7 @@ export function buildSkillInstallInstruction({
   const versionNote = source.version
     ? `\n\n这一份的 Skill 版本是 ${source.version}。如果目标位置已经有旧版本，请用这一份覆盖；安装完成后记住该版本号，之后每次会话开始时按 SKILL.md 的「版本自检」与 health 返回的 skill.version 比对，不一致就提醒用户重新安装。`
     : ''
-  return `${sourceText}\n\n${healthUrl}${versionNote}\n\n先调用公开的 health 接口验证服务。然后请用户在 TraceMemo → API Center → API Token 中点击“复制 Token”，并把 Token 配置为 Agent 本机环境变量 TRACEMEMO_API_TOKEN。读取联系人、会话或聊天记录时，必须发送 Authorization: Bearer $TRACEMEMO_API_TOKEN。若旧配置尚未升级，可兼容读取 WECHATEXPLORER_API_TOKEN，但新配置必须优先使用 TRACEMEMO_API_TOKEN。此服务是 Local HTTP API，不是 MCP Server。安装完成后告诉我验证结果，并说明你的本机 Skill 版本与 health 返回的 skill.version 是否一致。`
+  return `${sourceText}\n\n${healthUrl}${versionNote}\n\n先调用公开的 health 接口验证服务。然后请用户在 NearCast → API Center → API Token 中点击“复制 Token”，并把 Token 配置为 Agent 本机环境变量 TRACEMEMO_API_TOKEN。读取联系人、会话或聊天记录时，必须发送 Authorization: Bearer $TRACEMEMO_API_TOKEN。若旧配置尚未升级，可兼容读取 WECHATEXPLORER_API_TOKEN，但新配置必须优先使用 TRACEMEMO_API_TOKEN。此服务是 Local HTTP API，不是 MCP Server。安装完成后告诉我验证结果，并说明你的本机 Skill 版本与 health 返回的 skill.version 是否一致。`
 }
 
 export function buildSkillVerificationPrompt(): string {

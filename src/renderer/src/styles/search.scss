@@ -143,7 +143,7 @@
 }
 
 .ai-search-knowledge-card.error .ai-search-knowledge-dot {
-  background: var(--wxex-danger, #c15d4d);
+  background: var(--wxex-danger, var(--wxex-danger));
 }
 
 .ai-search-filter-section {
@@ -207,7 +207,7 @@
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid hsl(var(--tm-border-subtle));
+  border: 1px solid var(--tm-border-subtle);
   border-radius: var(--wxex-radius-md);
   background: var(--wxex-bg-elevated);
   /* 侧栏最窄时卡片正文只有 ~145px。这里保持默认的 word-break / overflow-wrap：
@@ -556,10 +556,10 @@
   max-width: 520px;
   display: grid;
   margin-top: 6px;
-  border-top: 1px solid hsl(var(--tm-border-subtle));
+  border-top: 1px solid var(--tm-border-subtle);
 
   > * {
-    border-bottom: 1px solid hsl(var(--tm-border-subtle));
+    border-bottom: 1px solid var(--tm-border-subtle);
   }
 }
 
@@ -801,7 +801,7 @@
 
 .ai-search-answer-evidence {
   padding: 9px 12px;
-  border: 1px solid hsl(var(--tm-border-subtle));
+  border: 1px solid var(--tm-border-subtle);
   border-top: 0;
   background: var(--wxex-bg-elevated);
 }
@@ -931,7 +931,7 @@
   place-items: center;
   margin-bottom: 16px;
   border-radius: 50%;
-  background: #fff1df;
+  background: var(--wxex-brand-soft);
   color: var(--wxex-warning);
   font-size: 20px;
   font-weight: 700;
@@ -944,12 +944,12 @@
 @keyframes ai-search-evidence-flash {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(36, 122, 99, 0);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--wxex-brand) 0%, transparent);
   }
   50% {
     border-color: var(--wxex-brand);
-    background: #e8f7f0;
-    box-shadow: 0 0 0 4px rgba(36, 122, 99, 0.18);
+    background: var(--wxex-brand-soft);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--wxex-brand) 18%, transparent);
   }
 }
 
@@ -1103,7 +1103,7 @@
 .ai-search-answer code {
   padding: 1px 4px;
   border-radius: 4px;
-  background: rgba(65, 84, 76, 0.1);
+  background: color-mix(in srgb, var(--wxex-bg-sidebar) 10%, transparent);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
 }

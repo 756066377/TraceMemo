@@ -29,8 +29,16 @@ export function AISearchEvidencePanel({
   onLoadMoreEvidence,
   setEvidenceCardRef
 }: AISearchEvidencePanelProps): React.ReactElement {
+  const panelRef = React.useRef<HTMLElement>(null)
+  React.useEffect(() => {
+    // A narrow desktop mounts the evidence inside a dialog after a citation is selected.
+    panelRef.current?.querySelector('.ai-search-evidence-focus-flash')?.scrollIntoView({
+      block: 'nearest',
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+    })
+  }, [evidenceFlash])
   return (
-    <aside className="min-h-0 min-w-0 overflow-y-auto border-l border-border bg-surface-muted px-3.5 py-4 [@media(max-height:820px)]:pt-3">
+    <aside ref={panelRef} className="min-h-0 min-w-0 overflow-y-auto border-l border-border bg-surface-muted px-3.5 py-4 [@media(max-height:820px)]:pt-3">
       <div className="mb-3.5 flex items-start justify-between gap-2.5">
         <div className="flex flex-col gap-0.5">
           <span className="text-[10px] leading-[15px] text-muted-foreground">可追溯数据</span>

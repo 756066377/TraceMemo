@@ -123,7 +123,7 @@ test('REPORT-TEMPLATE-E2E-01 installs and renders a fixture without author code'
   const outputDir = mkdtempSync(join(tmpdir(), 'tracememo-template-output-'))
   const launch = () =>
     electron.launch({
-      args: [resolve('out/main/reportTemplateTest.js')],
+      args: [resolve('out/main/reportTemplateTest.js'), '--force-device-scale-factor=1'],
       env: {
         ...process.env,
         TRACEMEMO_TEMPLATE_TEST_USER_DATA: userData,
@@ -215,7 +215,7 @@ test('REPORT-TEMPLATE-E2E-CAPTURE-01 enforces manifest maxHeight in the producti
   const fixtureDir = mkdtempSync(join(tmpdir(), 'tracememo-template-capture-fixture-'))
   const launch = () =>
     electron.launch({
-      args: [resolve('out/main/reportTemplateTest.js')],
+      args: [resolve('out/main/reportTemplateTest.js'), '--force-device-scale-factor=1'],
       env: {
         ...process.env,
         TRACEMEMO_TEMPLATE_TEST_USER_DATA: userData,
@@ -304,7 +304,7 @@ test('REPORT-TEMPLATE-E2E-SECURITY-01 blocks runtime attacks in a real Electron 
   )
   const launch = () =>
     electron.launch({
-      args: [resolve('out/main/reportTemplateTest.js')],
+      args: [resolve('out/main/reportTemplateTest.js'), '--force-device-scale-factor=1'],
       env: {
         ...process.env,
         TRACEMEMO_TEMPLATE_TEST_USER_DATA: userData,

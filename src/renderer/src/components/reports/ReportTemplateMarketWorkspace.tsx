@@ -103,7 +103,7 @@ export function ReportTemplateMarketWorkspace({
   const install = async (entry: ReportTemplateCatalogEntry): Promise<void> => {
     const key = encodeExternalReportTemplateId(entry.id, entry.version)
     if (typeof window.api.installReportTemplateFromCatalog !== 'function') {
-      setError('当前 TraceMemo 版本不支持模板市场安装')
+      setError('当前 NearCast 版本不支持模板市场安装')
       return
     }
     setBusyKey(key)

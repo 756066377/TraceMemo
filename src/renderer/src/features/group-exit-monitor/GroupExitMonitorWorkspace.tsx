@@ -712,7 +712,7 @@ export function GroupExitMonitorWorkspace({
             </svg>
           </div>
           <h2 id="exit-monitor-setup-title">还没有设置监控群聊</h2>
-          <p>选择需要关注的群聊，TraceMemo 会在成员数量变化时及时提醒你。</p>
+          <p>选择需要关注的群聊，NearCast 会在成员数量变化时及时提醒你。</p>
           <Button onClick={openManage}>选择群聊</Button>
         </section>
       ) : (

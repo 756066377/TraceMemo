@@ -121,6 +121,7 @@ export class WechatSendGateway {
     }
 
     const transport = resolveSendTransport(request)
+    let deliveryStatus: 'accepted' | undefined
     try {
       if (transport === 'ilink') {
         if (!this.ilinkAdapter) {
@@ -139,6 +140,7 @@ export class WechatSendGateway {
         await this.ilinkAdapter(request)
       } else {
         const personalResult = await this.sendPersonalRequest(unifiedToPersonalRequest(request))
+        deliveryStatus = personalResult.deliveryStatus
         if (!personalResult.success) {
           return this.finish({
             requestId: request.request_id,
@@ -161,7 +163,8 @@ export class WechatSendGateway {
         msg: request.msg,
         startedAt,
         ...(request.account_id ? { accountId: request.account_id } : {}),
-        status: 'sent'
+        status: 'sent',
+        ...(deliveryStatus ? { deliveryStatus } : {})
       })
     } catch (error) {
       const errorCode: WechatSendErrorCode =
@@ -202,6 +205,7 @@ export class WechatSendGateway {
         msg: preview.msg,
         startedAt,
         status: result.success ? 'sent' : 'failed',
+        ...(result.deliveryStatus ? { deliveryStatus: result.deliveryStatus } : {}),
         ...(result.success ? {} : { errorCode: 'SEND_FAILED' as WechatSendErrorCode })
       })
       return result
@@ -236,6 +240,7 @@ export class WechatSendGateway {
     startedAt: number
     accountId?: string
     status?: 'sent' | 'failed' | 'blocked'
+    deliveryStatus?: 'accepted'
     errorCode?: WechatSendErrorCode
     error?: string
   }): WechatSendResult {
@@ -249,6 +254,7 @@ export class WechatSendGateway {
       msg: input.msg,
       startedAt: input.startedAt,
       status,
+      ...(input.deliveryStatus ? { deliveryStatus: input.deliveryStatus } : {}),
       durationMs,
       ...(input.accountId ? { accountId: input.accountId } : {}),
       ...(input.errorCode ? { errorCode: input.errorCode } : {})
@@ -259,6 +265,7 @@ export class WechatSendGateway {
       status,
       transport: input.transport,
       duration_ms: durationMs,
+      ...(input.deliveryStatus ? { delivery_status: input.deliveryStatus } : {}),
       ...(input.errorCode ? { error_code: input.errorCode } : {}),
       ...(input.error ? { error: input.error } : {})
     }
@@ -272,6 +279,7 @@ export class WechatSendGateway {
     msg: string
     startedAt: number
     status: 'sent' | 'failed' | 'blocked'
+    deliveryStatus?: 'accepted'
     durationMs?: number
     accountId?: string
     errorCode?: WechatSendErrorCode
@@ -287,6 +295,7 @@ export class WechatSendGateway {
           type: input.type,
           msg: input.msg,
           status: input.status,
+          ...(input.deliveryStatus ? { delivery_status: input.deliveryStatus } : {}),
           timestamp: this.deps.now(),
           ...(input.durationMs !== undefined ? { duration_ms: input.durationMs } : {}),
           ...(input.accountId ? { account_id: input.accountId } : {}),

@@ -126,7 +126,7 @@ export function KnowledgeIndexCard({
             </Button>
           ) : null}
           {/* 用项目 `Button` 而不是自写 `<button>` + 自己的主色样式：
-            `hsl(var(--tm-primary))` 在这套主题变量下不生效（实测背景回退成了浏览器默认灰），
+            `var(--tm-primary)` 在这套主题变量下不生效（实测背景回退成了浏览器默认灰），
             而复用组件同时还省掉了一套与全站不一致的按钮外观。 */}
           <Button
             size="sm"

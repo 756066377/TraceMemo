@@ -714,7 +714,7 @@ describe('退群通知 · 规则缺失时的兜底', () => {
     renderWithProviders(<DeepLinkHarness />)
 
     expect(await screen.findByText('没有找到内置的退群通知规则。')).toBeVisible()
-    expect(screen.getByText(/请重启 TraceMemo/)).toBeVisible()
+    expect(screen.getByText(/请重启 NearCast/)).toBeVisible()
     expect(screen.queryByText('正在读取退群通知规则…')).toBeNull()
 
     const before = spies.listAutomationRules.mock.calls.length

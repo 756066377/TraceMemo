@@ -11,12 +11,12 @@ const AlertDialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => (
   <AlertDialogPrimitive.Portal>
-    <div className="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto p-4 sm:items-center">
-      <AlertDialogPrimitive.Overlay className="fixed inset-0 bg-slate-950/45 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in" />
+    <div className="dui-modal dui-modal-open fixed inset-0 z-modal flex items-start justify-center overflow-y-auto p-4 sm:items-center">
+      <AlertDialogPrimitive.Overlay className="fixed inset-0 tm-overlay data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in" />
       <AlertDialogPrimitive.Content
         ref={ref}
         className={cn(
-          'relative z-modal grid w-full max-w-md gap-4 rounded-xl border border-border bg-surface p-6 text-foreground shadow-dialog duration-normal ease-tm-emphasized data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95',
+          'dui-modal-box tm-glass-panel tm-glass-floating relative z-modal grid w-full max-w-md gap-4 rounded-xl border border-border bg-surface p-6 text-foreground shadow-dialog duration-normal ease-tm-emphasized data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95',
           className
         )}
         {...props}

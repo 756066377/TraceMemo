@@ -11,7 +11,7 @@ const DialogPortal = ({
   ...props
 }: DialogPrimitive.DialogPortalProps): React.ReactElement => (
   <DialogPrimitive.Portal {...props}>
-    <div className="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto p-4 sm:items-center">
+    <div className="dui-modal dui-modal-open fixed inset-0 z-modal flex items-start justify-center overflow-y-auto p-4 sm:items-center">
       {children}
     </div>
   </DialogPrimitive.Portal>
@@ -24,7 +24,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-modal bg-slate-950/45 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in',
+      'fixed inset-0 z-modal tm-overlay data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in',
       className
     )}
     {...props}
@@ -41,7 +41,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'relative z-modal grid w-full max-w-lg gap-4 rounded-xl border border-border bg-surface p-6 text-foreground shadow-dialog duration-normal ease-tm-emphasized data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95',
+        'dui-modal-box tm-glass-panel tm-glass-floating relative z-modal grid w-full max-w-lg gap-4 rounded-xl border border-border bg-surface p-6 text-foreground shadow-dialog duration-normal ease-tm-emphasized data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95',
         className
       )}
       {...props}
